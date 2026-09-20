@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { capitalizeName } from "@/lib/format";
 
 const inputClasses =
   "w-full rounded-lg border border-neutral-300 bg-white px-4 py-3 text-neutral-900 placeholder:text-neutral-400 transition duration-200 focus:border-red-600";
@@ -13,7 +14,7 @@ const initialForm = {
   neighborhood: "", address: "", goal: "", restrictions: "",
   fitness_level: "", training_experience: "", weekly_frequency: "",
   plan_name: "", plan_price: "", plan_start: "", plan_end: "",
-  status: "ativo", notes: "",
+  notes: "",
 };
 
 export default function NewStudentPage() {
@@ -29,6 +30,10 @@ export default function NewStudentPage() {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
+  function handleNameBlur() {
+    set("name", capitalizeName(form.name));
+  }
+
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -39,8 +44,10 @@ export default function NewStudentPage() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
+    const normalizedName = capitalizeName(form.name);
+
     const required = [
-      form.name, form.birth_date, form.whatsapp, form.goal,
+      normalizedName, form.birth_date, form.whatsapp, form.goal,
       form.restrictions, form.plan_name, form.plan_price,
       form.plan_start, form.plan_end,
     ];
@@ -71,7 +78,7 @@ export default function NewStudentPage() {
     const { data, error: err } = await supabase
       .from("students")
       .insert({
-        name: form.name,
+        name: normalizedName,
         birth_date: form.birth_date,
         whatsapp: form.whatsapp,
         email: form.email || null,
@@ -89,7 +96,7 @@ export default function NewStudentPage() {
         plan_price: parseFloat(form.plan_price.replace(",", ".")),
         plan_start: form.plan_start,
         plan_end: form.plan_end,
-        status: form.status,
+        status: "ativo",
         notes: form.notes || null,
         photo_url: photoUrl,
       })
@@ -150,7 +157,7 @@ export default function NewStudentPage() {
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="name" className={labelClasses}>Nome completo *</label>
-              <input id="name" className={inputClasses} value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Nome do aluno" />
+              <input id="name" className={inputClasses} value={form.name} onChange={(e) => set("name", e.target.value)} onBlur={handleNameBlur} placeholder="Nome do aluno" />
             </div>
             <div>
               <label htmlFor="birth_date" className={labelClasses}>Data de nascimento *</label>
@@ -238,13 +245,6 @@ export default function NewStudentPage() {
             <div>
               <label htmlFor="plan_end" className={labelClasses}>Vencimento *</label>
               <input id="plan_end" type="date" className={inputClasses} value={form.plan_end} onChange={(e) => set("plan_end", e.target.value)} />
-            </div>
-            <div>
-              <label htmlFor="status" className={labelClasses}>Status</label>
-              <select id="status" className={inputClasses} value={form.status} onChange={(e) => set("status", e.target.value)}>
-                <option value="ativo">Ativo</option>
-                <option value="inativo">Inativo</option>
-              </select>
             </div>
           </div>
         </section>

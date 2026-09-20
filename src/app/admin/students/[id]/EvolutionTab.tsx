@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { formatDateBR } from "@/lib/format";
 
 type Photo = { id: string; url: string };
 
@@ -33,10 +34,6 @@ function bmiInfo(bmi: number) {
   if (bmi < 25) return { label: "Peso normal", badge: "bg-green-100 text-green-800" };
   if (bmi < 30) return { label: "Sobrepeso", badge: "bg-amber-100 text-amber-800" };
   return { label: "Obesidade", badge: "bg-red-100 text-red-800" };
-}
-
-function formatDate(iso: string) {
-  return new Date(iso + (iso.length === 10 ? "T12:00:00" : "")).toLocaleDateString("pt-BR");
 }
 
 const measureLabels: Record<string, string> = {
@@ -305,7 +302,7 @@ export default function EvolutionTab({
                 <div key={r.id} className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-3">
-                      <h3 className="text-base font-bold text-neutral-900">{formatDate(r.record_date)}</h3>
+                      <h3 className="text-base font-bold text-neutral-900">{formatDateBR(r.record_date)}</h3>
                       {rInfo && (
                         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${rInfo.badge}`}>
                           IMC {rBmi?.toFixed(1)} · {rInfo.label}
@@ -357,7 +354,7 @@ export default function EvolutionTab({
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={p.url}
-                            alt={`Foto de evolução de ${formatDate(r.record_date)}`}
+                            alt={`Foto de evolução de ${formatDateBR(r.record_date)}`}
                             className="aspect-square w-full rounded-lg object-cover transition hover:opacity-80"
                           />
                         </a>

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { capitalizeName, formatDateBR } from "@/lib/format";
 import EvolutionTab, { type EvolutionRecord } from "./EvolutionTab";
 import DeleteStudentButton from "../DeleteStudentButton";
 
@@ -166,7 +167,7 @@ export default function StudentProfile({
         </div>
 
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold text-neutral-900">{student.name}</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">{capitalizeName(student.name)}</h1>
           <p className="text-sm text-neutral-500">{student.whatsapp ?? "Sem WhatsApp"}</p>
         </div>
 
@@ -175,7 +176,7 @@ export default function StudentProfile({
             className={`rounded-full px-3 py-1 text-xs font-semibold ${
               status === "ativo"
                 ? "bg-green-100 text-green-800"
-                : "bg-neutral-100 text-neutral-600"
+                : "bg-red-100 text-red-800"
             }`}
           >
             {status}
@@ -216,7 +217,7 @@ export default function StudentProfile({
         ))}
       </div>
 
-      {/* Aba Dados: foto grande + informações em sequência, como no formulário */}
+      {/* Aba Dados */}
       {tab === "dados" && (
         <div className="space-y-6">
           <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
@@ -235,8 +236,8 @@ export default function StudentProfile({
           </section>
 
           <Section title="Dados pessoais">
-            <Field label="Nome completo" value={student.name} />
-            <Field label="Data de nascimento" value={student.birth_date} />
+            <Field label="Nome completo" value={capitalizeName(student.name)} />
+            <Field label="Data de nascimento" value={formatDateBR(student.birth_date)} />
             <Field label="Idade" value={student.birth_date ? String(calcAge(student.birth_date)) : null} />
             <Field label="WhatsApp" value={student.whatsapp} />
             <Field label="E-mail" value={student.email} />
@@ -256,8 +257,8 @@ export default function StudentProfile({
           <Section title="Plano e financeiro">
             <Field label="Plano" value={student.plan_name} />
             <Field label="Valor mensal" value={student.plan_price != null ? `R$ ${student.plan_price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : null} />
-            <Field label="Início do plano" value={student.plan_start} />
-            <Field label="Vencimento" value={student.plan_end} />
+            <Field label="Início do plano" value={formatDateBR(student.plan_start)} />
+            <Field label="Vencimento" value={formatDateBR(student.plan_end)} />
             <Field label="Status" value={status} />
           </Section>
 

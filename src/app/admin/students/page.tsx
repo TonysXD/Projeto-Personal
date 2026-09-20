@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { capitalizeName } from "@/lib/format";
 import DeleteStudentButton from "./DeleteStudentButton";
 
 export default async function StudentsPage() {
@@ -54,7 +55,7 @@ export default async function StudentsPage() {
                         href={`/admin/students/${s.id}`}
                         className="font-medium text-neutral-900 hover:text-red-600"
                       >
-                        {s.name}
+                        {capitalizeName(s.name)}
                       </Link>
                     </div>
                   </td>
@@ -66,7 +67,7 @@ export default async function StudentsPage() {
                       className={`rounded-full px-3 py-1 text-xs font-semibold ${
                         s.status === "ativo"
                           ? "bg-green-100 text-green-800"
-                          : "bg-neutral-100 text-neutral-600"
+                          : "bg-red-100 text-red-800"
                       }`}
                     >
                       {s.status}

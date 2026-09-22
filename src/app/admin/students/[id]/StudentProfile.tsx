@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { capitalizeName, formatDateBR } from "@/lib/format";
 import EvolutionTab, { type EvolutionRecord } from "./EvolutionTab";
+import PaymentsTab from "./PaymentsTab";
+import AgendaTab from "./AgendaTab";
 import DeleteStudentButton from "../DeleteStudentButton";
 
 type Student = {
@@ -92,8 +94,6 @@ export default function StudentProfile({
   const [inactivating, setInactivating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // CORREÇÃO: comparação insensível a maiúsculas/minúsculas
-  // (antes era === "INATIVAR" e falhava se digitasse "inativar")
   const canInactivate = typed.trim().toUpperCase() === "INATIVAR";
 
   async function reactivateStudent() {
@@ -381,7 +381,11 @@ export default function StudentProfile({
         <EvolutionTab studentId={student.id} initialRecords={evolution} />
       )}
 
-      {(tab === "pagamentos" || tab === "agenda" || tab === "notas") && (
+      {tab === "pagamentos" && <PaymentsTab studentId={student.id} />}
+
+      {tab === "agenda" && <AgendaTab studentId={student.id} />}
+
+      {tab === "notas" && (
         <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-10 text-center text-neutral-500">
           Módulo em desenvolvimento — disponível nas próximas fases.
         </div>

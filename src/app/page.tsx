@@ -7,7 +7,6 @@ import Testimonials from "@/components/Testimonials";
 import FAQ from "@/components/FAQ";
 import LeadForm from "@/components/LeadForm";
 import Footer from "@/components/Footer";
-import NextClassCard from '@/components/NextClassCard';
 
 export default function Home() {
   return (
@@ -15,7 +14,6 @@ export default function Home() {
       <Header />
       <main id="conteudo">
         <Hero />
-        <NextClassCard />
         <SocialProof />
         <Problems />
         <HowItWorks />

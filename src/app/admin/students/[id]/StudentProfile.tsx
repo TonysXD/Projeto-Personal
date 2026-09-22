@@ -7,6 +7,7 @@ import { capitalizeName, formatDateBR } from "@/lib/format";
 import EvolutionTab, { type EvolutionRecord } from "./EvolutionTab";
 import PaymentsTab from "./PaymentsTab";
 import AgendaTab from "./AgendaTab";
+import NotesTab from "./NotesTab";
 import DeleteStudentButton from "../DeleteStudentButton";
 
 type Student = {
@@ -386,9 +387,7 @@ export default function StudentProfile({
       {tab === "agenda" && <AgendaTab studentId={student.id} />}
 
       {tab === "notas" && (
-        <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-10 text-center text-neutral-500">
-          Módulo em desenvolvimento — disponível nas próximas fases.
-        </div>
+        <NotesTab studentId={student.id} initialNotes={student.notes} />
       )}
 
       {/* Modal de confirmação — Inativar */}

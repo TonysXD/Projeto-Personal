@@ -64,13 +64,6 @@ function calcBMI(weight: number, heightCm: number) {
   return weight / (h * h);
 }
 
-function bmiLabel(bmi: number) {
-  if (bmi < 18.5) return "Abaixo do peso";
-  if (bmi < 25) return "Peso normal";
-  if (bmi < 30) return "Sobrepeso";
-  return "Obesidade";
-}
-
 function calcAge(birth: string) {
   const b = new Date(birth + "T12:00:00");
   const now = new Date();
@@ -298,7 +291,7 @@ export async function GET(
 
     const boxes = [
       { label: "Peso atual", value: last?.weight != null ? `${last.weight} kg` : "—", sub: "" },
-      { label: "IMC atual", value: currBmi ? currBmi.toFixed(1) : "—", sub: currBmi ? bmiLabel(currBmi) : "" },
+      { label: "IMC atual", value: currBmi ? `${currBmi.toFixed(1)} kg/m²` : "—", sub: "" },
       { label: "Registros", value: String(rows.length), sub: "" },
       { label: "Variação desde o 1º", value: delta != null ? `${delta > 0 ? "+" : ""}${delta.toFixed(1)} kg` : "—", sub: "" },
     ];

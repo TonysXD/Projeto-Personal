@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { capitalizeName } from "@/lib/format";
+import DateInput from "@/components/DateInput";
 
 const inputClasses =
   "w-full rounded-lg border border-neutral-300 bg-white px-4 py-3 text-neutral-900 placeholder:text-neutral-400 transition duration-200 focus:border-red-600";
@@ -161,7 +162,7 @@ export default function NewStudentPage() {
             </div>
             <div>
               <label htmlFor="birth_date" className={labelClasses}>Data de nascimento *</label>
-              <input id="birth_date" type="date" className={inputClasses} value={form.birth_date} onChange={(e) => set("birth_date", e.target.value)} />
+              <DateInput id="birth_date" className={inputClasses} value={form.birth_date} onChange={(v) => set("birth_date", v)} required />
             </div>
             <div>
               <label htmlFor="whatsapp" className={labelClasses}>WhatsApp *</label>
@@ -240,11 +241,11 @@ export default function NewStudentPage() {
             </div>
             <div>
               <label htmlFor="plan_start" className={labelClasses}>Início do plano *</label>
-              <input id="plan_start" type="date" className={inputClasses} value={form.plan_start} onChange={(e) => set("plan_start", e.target.value)} />
+              <DateInput id="plan_start" className={inputClasses} value={form.plan_start} onChange={(v) => set("plan_start", v)} required />
             </div>
             <div>
               <label htmlFor="plan_end" className={labelClasses}>Vencimento *</label>
-              <input id="plan_end" type="date" className={inputClasses} value={form.plan_end} onChange={(e) => set("plan_end", e.target.value)} />
+              <DateInput id="plan_end" className={inputClasses} value={form.plan_end} onChange={(v) => set("plan_end", v)} required />
             </div>
           </div>
         </section>

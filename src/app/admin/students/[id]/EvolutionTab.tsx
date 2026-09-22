@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatDateBR } from "@/lib/format";
+import DateInput from "@/components/DateInput";
 
 type Photo = { id: string; url: string };
 
@@ -36,6 +37,11 @@ function bmiInfo(bmi: number) {
   return { label: "Obesidade", badge: "bg-red-100 text-red-800" };
 }
 
+function todayLocalISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 const measureLabels: Record<string, string> = {
   cintura: "Cintura (cm)",
   braco: "Braço (cm)",
@@ -55,7 +61,7 @@ export default function EvolutionTab({
 
   const last = initialRecords[0];
 
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todayLocalISO());
   const [weight, setWeight] = useState("");
   const [height, setHeight] = useState(last?.height ? String(last.height) : "");
   const [bodyFat, setBodyFat] = useState("");
@@ -73,12 +79,6 @@ export default function EvolutionTab({
   const h = parseFloat(height.replace(",", "."));
   const bmi = calcBMI(w, h);
   const bmiResult = bmi ? bmiInfo(bmi) : null;
-
-  const first = initialRecords[initialRecords.length - 1];
-  const delta =
-    first && last && first.weight != null && last.weight != null
-      ? last.weight - first.weight
-      : null;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -132,7 +132,7 @@ export default function EvolutionTab({
       }
     }
 
-    setDate(new Date().toISOString().slice(0, 10));
+    setDate(todayLocalISO());
     setWeight("");
     setBodyFat("");
     setWaist("");
@@ -170,7 +170,7 @@ export default function EvolutionTab({
   return (
     <div className="space-y-8">
       {/* Resumo da evolução */}
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Peso atual</p>
           <p className="mt-1 text-2xl font-bold text-neutral-900">
@@ -189,12 +189,6 @@ export default function EvolutionTab({
           <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Registros</p>
           <p className="mt-1 text-2xl font-bold text-neutral-900">{initialRecords.length}</p>
         </div>
-        <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Δ desde o 1º registro</p>
-          <p className="mt-1 text-2xl font-bold text-neutral-900">
-            {delta != null ? `${delta > 0 ? "+" : ""}${delta.toFixed(1)} kg` : "—"}
-          </p>
-        </div>
       </div>
 
       {/* Formulário de novo registro */}
@@ -204,7 +198,7 @@ export default function EvolutionTab({
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="ev-date" className={labelClasses}>Data *</label>
-            <input id="ev-date" type="date" className={inputClasses} value={date} onChange={(e) => setDate(e.target.value)} />
+            <DateInput id="ev-date" className={inputClasses} value={date} onChange={setDate} required />
           </div>
           <div>
             <label htmlFor="ev-weight" className={labelClasses}>Peso (kg) *</label>

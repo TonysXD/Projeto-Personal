@@ -171,7 +171,7 @@ export default function StudentProfile({
           <p className="text-sm text-neutral-500">{student.whatsapp ?? "Sem WhatsApp"}</p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <span
             className={`rounded-full px-3 py-1 text-xs font-semibold ${
               status === "ativo"
@@ -196,6 +196,21 @@ export default function StudentProfile({
               ? "Inativar aluno"
               : "Reativar aluno"}
           </button>
+
+          {/* Botão Relatório PDF — abre o PDF em nova aba para baixar/enviar */}
+          <a
+            href={`/api/report/${student.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Gerar relatório de evolução em PDF"
+            className="flex items-center gap-2 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white transition duration-200 hover:bg-neutral-800 active:scale-[0.98]"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
+            </svg>
+            Relatório PDF
+          </a>
+
           <DeleteStudentButton studentId={student.id} studentName={student.name} />
         </div>
       </div>

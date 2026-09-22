@@ -4,90 +4,96 @@ import { createClient } from "@/lib/supabase/server";
 export default async function AdminDashboard() {
   const supabase = await createClient();
 
-  const [{ data: students }, { data: payments }, { data: appointments }] =
+  const today = new Date().toISOString().slice(0, 10);
+
+  const [{ data: students }, { data: slots }, { data: appointments }, { data: payments }] =
     await Promise.all([
-      supabase.from("students").select("id, name, whatsapp, status, created_at"),
-      supabase.from("payments").select("id, status, amount"),
-      supabase.from("appointments").select("id, date, status"),
+      supabase.from("students").select("id, status"),
+      supabase.from("schedule_slots").select("id, active"),
+      supabase
+        .from("appointments")
+        .select("id, appointment_date, active, status")
+        .gte("appointment_date", today),
+      supabase.from("payments").select("id, status, due_date, amount, paid_at"),
     ]);
 
-  const total = students?.length ?? 0;
-  const active = students?.filter((s) => s.status === "ativo").length ?? 0;
-  const pending =
-    payments?.filter((p) => p.status === "pendente" || p.status === "atrasado") ?? [];
-  const pendingTotal = pending.reduce((sum, p) => sum + Number(p.amount ?? 0), 0);
-  const today = new Date().toISOString().slice(0, 10);
-  const todayCount =
-    appointments?.filter((a) => a.date === today && a.status === "agendado").length ?? 0;
+  const totalStudents = (students ?? []).length;
+  const activeStudents = (students ?? []).filter((s) => s.status === "ativo").length;
 
-  const recent = students ?? [];
+  // ===== AULAS AGENDADAS (o contador corrigido) =====
+  const activeSlots = (slots ?? []).filter((s) => s.active).length;
+  const upcomingAppointments = (appointments ?? []).filter(
+    (a) => a.active && a.status !== "cancelado"
+  ).length;
+  const scheduledClasses = activeSlots + upcomingAppointments;
+
+  let toReceive = 0;
+  let overdue = 0;
+  let overdueCount = 0;
+  let paidThisMonth = 0;
+  const month = today.slice(0, 7);
+
+  for (const p of payments ?? []) {
+    const isPaid = p.status === "pago";
+    const isOverdue = !isPaid && p.due_date < today;
+    if (!isPaid) toReceive += Number(p.amount ?? 0);
+    if (isOverdue) {
+      overdue += Number(p.amount ?? 0);
+      overdueCount++;
+    }
+    if (isPaid && p.paid_at?.startsWith(month)) paidThisMonth += Number(p.amount ?? 0);
+  }
+
+  const money = (v: number) =>
+    `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
 
   const cards = [
-    { label: "Alunos ativos", value: active, sub: `${total} no total` },
     {
-      label: "Pagamentos pendentes",
-      value: pending.length,
-      sub: `R$ ${pendingTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+      label: "Alunos ativos",
+      value: String(activeStudents),
+      sub: `${totalStudents} no total`,
+      href: "/admin/students",
+      color: "text-neutral-900",
     },
-    { label: "Aulas hoje", value: todayCount, sub: "agendadas" },
+    {
+      label: "Aulas agendadas",
+      value: String(scheduledClasses),
+      sub: `${activeSlots} fixas + ${upcomingAppointments} avulsas`,
+      href: "/admin/appointments",
+      color: "text-red-600",
+    },
+    {
+      label: "A receber",
+      value: money(toReceive),
+      sub: "pendentes e atrasados",
+      href: "/admin/payments",
+      color: "text-neutral-900",
+    },
+    {
+      label: "Atrasados",
+      value: money(overdue),
+      sub: `${overdueCount} cobrança(s) vencida(s)`,
+      href: "/admin/payments",
+      color: "text-red-600",
+    },
   ];
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-neutral-900">Visão geral</h1>
-        <Link
-          href="/admin/students/new"
-          className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
-        >
-          + Novo aluno
-        </Link>
-      </div>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold text-neutral-900">Painel</h1>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        {cards.map((card) => (
-          <div
-            key={card.label}
-            className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm"
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {cards.map((c) => (
+          <Link
+            key={c.label}
+            href={c.href}
+            className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm transition hover:border-neutral-300"
           >
-            <p className="text-sm font-medium text-neutral-500">{card.label}</p>
-            <p className="mt-1 text-3xl font-bold text-neutral-900">{card.value}</p>
-            <p className="mt-1 text-sm text-neutral-500">{card.sub}</p>
-          </div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">{c.label}</p>
+            <p className={`mt-1 text-2xl font-bold ${c.color}`}>{c.value}</p>
+            <p className="mt-1 text-xs text-neutral-500">{c.sub}</p>
+          </Link>
         ))}
-      </div>
-
-      <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-neutral-900">
-          Últimos alunos cadastrados
-        </h2>
-        {recent.length === 0 ? (
-          <p className="mt-4 text-neutral-500">
-            Nenhum aluno cadastrado ainda. Clique em "+ Novo aluno" para começar.
-          </p>
-        ) : (
-          <ul className="mt-4 divide-y divide-neutral-100">
-            {recent.map((s) => (
-              <li key={s.id} className="flex items-center justify-between py-3">
-                <div>
-                  <p className="font-medium text-neutral-900">{s.name}</p>
-                  <p className="text-sm text-neutral-500">
-                    {s.whatsapp ?? "Sem WhatsApp"}
-                  </p>
-                </div>
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                    s.status === "ativo"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-neutral-100 text-neutral-600"
-                  }`}
-                >
-                  {s.status}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
     </div>
   );

@@ -1,5 +1,4 @@
 "use client";
-
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -91,13 +90,17 @@ export default function StudentProfile({
   const [toggling, setToggling] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-
   // Modal de confirmação de inativação
   const [inactivateOpen, setInactivateOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const [inactivating, setInactivating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+  // Menu Exportar PDF
+  const [exportOpen, setExportOpen] = useState(false);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [emailTo, setEmailTo] = useState(student.email ?? "");
+  const [sending, setSending] = useState(false);
+  const [emailMsg, setEmailMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const canInactivate = typed.trim().toUpperCase() === "INATIVAR";
 
   // Link do WhatsApp com mensagem pré-preenchida (null se número inválido)
@@ -112,7 +115,6 @@ export default function StudentProfile({
       .from("students")
       .update({ status: "ativo" })
       .eq("id", student.id);
-
     if (!error) {
       setStatus("ativo");
       router.refresh();
@@ -124,11 +126,8 @@ export default function StudentProfile({
     if (!canInactivate || inactivating) return;
     setInactivating(true);
     setError(null);
-
     try {
       const reason = `Aluno inativado em ${formatDateBR(todayLocalISO())}`;
-
-      // 1) Desativa horários fixos (preserva histórico, some da agenda)
       const { data: slots } = await supabase
         .from("schedule_slots")
         .select("id")
@@ -139,8 +138,6 @@ export default function StudentProfile({
           .update({ active: false, reason })
           .in("id", slots.map((s) => s.id));
       }
-
-      // 2) Cancela agendamentos avulsos futuros não concluídos (data >= hoje)
       const { data: apps } = await supabase
         .from("appointments")
         .select("id")
@@ -153,8 +150,6 @@ export default function StudentProfile({
           .update({ status: "cancelado", active: false, reason })
           .in("id", apps.map((a) => a.id));
       }
-
-      // 3) Cancela pagamentos pendentes (nunca apaga histórico financeiro)
       const { data: pending } = await supabase
         .from("payments")
         .select("id, notes")
@@ -170,8 +165,6 @@ export default function StudentProfile({
             .eq("id", p.id);
         }
       }
-
-      // 4) Encerra a vigência do plano na data atual, se ainda ativa
       const { data: cur } = await supabase
         .from("students")
         .select("plan_end")
@@ -183,14 +176,11 @@ export default function StudentProfile({
           .update({ plan_end: todayLocalISO() })
           .eq("id", student.id);
       }
-
-      // 5) Marca o aluno como inativo
       const { error: err } = await supabase
         .from("students")
         .update({ status: "inativo" })
         .eq("id", student.id);
       if (err) throw err;
-
       setInactivateOpen(false);
       setTyped("");
       setStatus("inativo");
@@ -206,12 +196,10 @@ export default function StudentProfile({
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-
     const path = `students/${student.id}/${Date.now()}-${file.name}`;
     const { error: upError } = await supabase.storage
       .from("student-photos")
       .upload(path, file);
-
     if (!upError) {
       const url = supabase.storage
         .from("student-photos")
@@ -222,69 +210,172 @@ export default function StudentProfile({
         .eq("id", student.id);
       if (!error) setPhotoUrl(url);
     }
-
     setUploading(false);
     router.refresh();
   }
 
+  async function handleSendEmail() {
+    if (!emailTo.trim() || sending) return;
+    setSending(true);
+    setEmailMsg(null);
+    try {
+      const res = await fetch(`/api/report/${student.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailTo.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setEmailMsg({ ok: true, text: "Relatório enviado por e-mail com sucesso." });
+      } else {
+        setEmailMsg({ ok: false, text: data.error ?? "Não foi possível enviar o e-mail." });
+      }
+    } catch {
+      setEmailMsg({ ok: false, text: "Erro de conexão ao enviar o e-mail." });
+    }
+    setSending(false);
+  }
+
   return (
     <div className="space-y-6">
-      {/* Cabeçalho com foto do aluno */}
-      <div className="flex flex-wrap items-center gap-5 rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <div className="relative shrink-0">
-          {photoUrl ? (
-            <img
-              src={photoUrl}
-              alt={`Foto de ${student.name}`}
-              className="h-24 w-24 rounded-full object-cover"
+      {/* Cabeçalho do aluno */}
+      <div className="flex flex-col gap-5 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm lg:flex-row lg:items-center">
+        {/* Foto + nome + status */}
+        <div className="flex min-w-0 items-center gap-4">
+          <div className="relative shrink-0">
+            {photoUrl ? (
+              <img
+                src={photoUrl}
+                alt={`Foto de ${student.name}`}
+                className="h-20 w-20 rounded-full object-cover ring-2 ring-neutral-100"
+              />
+            ) : (
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-neutral-100 text-2xl font-bold text-neutral-400">
+                {student.name?.charAt(0).toUpperCase() ?? "?"}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              aria-label="Alterar foto"
+              className="absolute -bottom-0.5 -right-0.5 rounded-full bg-red-600 p-1.5 text-white shadow-md ring-2 ring-white transition hover:bg-red-700 disabled:opacity-50"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhoto}
             />
-          ) : (
-            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-neutral-200 text-3xl font-bold text-neutral-500">
-              {student.name?.charAt(0).toUpperCase() ?? "?"}
-            </div>
+          </div>
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-bold text-neutral-900 sm:text-2xl">
+              {capitalizeName(student.name)}
+            </h1>
+            <p className="mt-0.5 truncate text-sm text-neutral-500">
+              {student.whatsapp ?? "Sem WhatsApp"}
+            </p>
+            <span
+              className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                status === "ativo"
+                  ? "bg-green-50 text-green-700"
+                  : "bg-red-50 text-red-700"
+              }`}
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  status === "ativo" ? "bg-green-500" : "bg-red-500"
+                }`}
+              />
+              {status === "ativo" ? "Ativo" : "Inativo"}
+            </span>
+          </div>
+        </div>
+
+        {/* Barra de ações — agrupadas por função */}
+        <div className="flex flex-wrap items-center gap-2.5 lg:ml-auto">
+          {/* Grupo 1 — Contato e documentos (ações de produção) */}
+          {whatsLink && (
+            <a
+              href={whatsLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Abrir conversa no WhatsApp"
+              className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-green-600 px-4 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600/40 active:scale-[0.98]"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+              </svg>
+              WhatsApp
+            </a>
           )}
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            aria-label="Alterar foto"
-            className="absolute -bottom-1 -right-1 rounded-full bg-red-600 p-1.5 text-white shadow transition hover:bg-red-700 disabled:opacity-50"
-          >
-            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-              <circle cx="12" cy="13" r="4" />
-            </svg>
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handlePhoto}
-          />
-        </div>
 
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold text-neutral-900">{capitalizeName(student.name)}</h1>
-          <p className="text-sm text-neutral-500">{student.whatsapp ?? "Sem WhatsApp"}</p>
-        </div>
+          {/* Botão Exportar PDF com menu */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setExportOpen((v) => !v)}
+              className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-neutral-900 px-4 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/40 active:scale-[0.98]"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
+              </svg>
+              Exportar PDF
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 opacity-70">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+            {exportOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setExportOpen(false)} />
+                <div className="absolute right-0 z-40 mt-2 w-64 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl">
+                  <a
+                    href={`/api/report/${student.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setExportOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-50"
+                  >
+                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-neutral-400">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                    </svg>
+                    Baixar PDF
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmailTo(student.email ?? "");
+                      setEmailMsg(null);
+                      setExportOpen(false);
+                      setEmailModalOpen(true);
+                    }}
+                    className="flex w-full items-center gap-3 border-t border-neutral-100 px-4 py-3 text-left text-sm font-semibold text-neutral-800 transition hover:bg-neutral-50"
+                  >
+                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-neutral-400">
+                      <rect x="2" y="4" width="20" height="16" rx="2" />
+                      <path d="m22 7-10 5L2 7" />
+                    </svg>
+                    Enviar por e-mail
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-semibold ${
-              status === "ativo"
-                ? "bg-green-100 text-green-800"
-                : "bg-red-100 text-red-800"
-            }`}
-          >
-            {status}
-          </span>
+          {/* Separador entre produção e manutenção */}
+          <div className="hidden h-6 w-px bg-neutral-200 sm:block" aria-hidden="true" />
 
-          {/* Botão Editar — abre o modal de edição do perfil */}
+          {/* Grupo 2 — Manutenção */}
           <button
             type="button"
             onClick={() => setEditOpen(true)}
-            className="flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 transition duration-200 hover:bg-neutral-50 active:scale-[0.98]"
+            className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-neutral-300 bg-white px-4 text-sm font-semibold text-neutral-700 transition-all duration-200 hover:border-neutral-400 hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 active:scale-[0.98]"
           >
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -293,22 +384,10 @@ export default function StudentProfile({
             Editar
           </button>
 
-          {/* Botão WhatsApp — abre conversa direta com o aluno */}
-          {whatsLink && (
-            <a
-              href={whatsLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Abrir conversa no WhatsApp"
-              className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition duration-200 hover:bg-green-700 active:scale-[0.98]"
-            >
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-              </svg>
-              WhatsApp
-            </a>
-          )}
+          {/* Separador entre manutenção e ações de risco */}
+          <div className="hidden h-6 w-px bg-neutral-200 sm:block" aria-hidden="true" />
 
+          {/* Grupo 3 — Estado e exclusão (ações de risco) */}
           {status === "ativo" ? (
             <button
               onClick={() => {
@@ -317,7 +396,7 @@ export default function StudentProfile({
                 setInactivateOpen(true);
               }}
               disabled={toggling}
-              className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition duration-200 hover:bg-red-100 disabled:opacity-50"
+              className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-700 transition-all duration-200 hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600/40 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
             >
               Inativar aluno
             </button>
@@ -325,25 +404,11 @@ export default function StudentProfile({
             <button
               onClick={reactivateStudent}
               disabled={toggling}
-              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700 disabled:opacity-50"
+              className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-green-600 px-4 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600/40 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
             >
               {toggling ? "Salvando..." : "Reativar aluno"}
             </button>
           )}
-
-          {/* Botão Relatório PDF — abre o PDF em nova aba para baixar/enviar */}
-          <a
-            href={`/api/report/${student.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Gerar relatório de evolução em PDF"
-            className="flex items-center gap-2 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white transition duration-200 hover:bg-neutral-800 active:scale-[0.98]"
-          >
-            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
-            </svg>
-            Relatório PDF
-          </a>
 
           <DeleteStudentButton studentId={student.id} studentName={student.name} />
         </div>
@@ -383,7 +448,6 @@ export default function StudentProfile({
               )}
             </div>
           </section>
-
           <Section title="Dados pessoais">
             <Field label="Nome completo" value={capitalizeName(student.name)} />
             <Field label="Data de nascimento" value={formatDateBR(student.birth_date)} />
@@ -394,7 +458,6 @@ export default function StudentProfile({
             <Field label="Bairro" value={student.neighborhood} />
             <Field label="Endereço completo" value={student.address} />
           </Section>
-
           <Section title="Saúde e treino">
             <Field label="Objetivo principal" value={student.goal} />
             <Field label="Restrições ou lesões" value={student.restrictions} />
@@ -402,7 +465,6 @@ export default function StudentProfile({
             <Field label="Experiência com treino" value={student.training_experience} />
             <Field label="Frequência desejada" value={student.weekly_frequency ? `${student.weekly_frequency}x/semana` : null} />
           </Section>
-
           <Section title="Plano e financeiro">
             <Field label="Plano" value={student.plan_name} />
             <Field label="Valor mensal" value={student.plan_price != null ? `R$ ${student.plan_price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : null} />
@@ -410,7 +472,6 @@ export default function StudentProfile({
             <Field label="Vencimento" value={formatDateBR(student.plan_end)} />
             <Field label="Status" value={status} />
           </Section>
-
           <Section title="Notas">
             <Field label="Observações" value={student.notes} />
           </Section>
@@ -420,18 +481,10 @@ export default function StudentProfile({
       {tab === "evolucao" && (
         <EvolutionTab studentId={student.id} initialRecords={evolution} />
       )}
-
       {tab === "pagamentos" && <PaymentsTab studentId={student.id} />}
-
       {tab === "agenda" && <AgendaTab studentId={student.id} />}
-
       {tab === "notas" && (
         <NotesTab studentId={student.id} initialNotes={student.notes} />
-      )}
-
-      {/* Modal de edição do perfil */}
-      {editOpen && (
-        <EditStudentModal student={student} onClose={() => setEditOpen(false)} />
       )}
 
       {/* Modal de confirmação — Inativar */}
@@ -451,7 +504,6 @@ export default function StudentProfile({
             <p className="mt-3 text-sm text-neutral-600">
               O histórico (pagamentos, evolução, fotos) é preservado. O aluno poderá ser reativado depois.
             </p>
-
             <label htmlFor="confirm-inactivate" className="mt-4 block text-sm font-semibold text-neutral-800">
               Digite <span className="font-mono text-red-600">INATIVAR</span> para confirmar
             </label>
@@ -464,13 +516,11 @@ export default function StudentProfile({
               autoComplete="off"
               className="mt-1.5 w-full rounded-lg border border-neutral-300 px-4 py-3 text-neutral-900 placeholder:text-neutral-400 focus:border-red-600 focus:outline-none"
             />
-
             {error && (
               <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-center text-sm font-medium text-red-800">
                 {error}
               </p>
             )}
-
             <div className="mt-5 flex gap-3">
               <button
                 type="button"
@@ -491,6 +541,61 @@ export default function StudentProfile({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal — Enviar por e-mail */}
+      {emailModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-bold text-neutral-900">Enviar relatório por e-mail</h2>
+            <p className="mt-2 text-sm text-neutral-600">
+              O PDF de evolução de <strong>{capitalizeName(student.name)}</strong> será enviado em anexo.
+            </p>
+            <label htmlFor="report-email" className="mt-4 block text-sm font-semibold text-neutral-800">
+              E-mail do destinatário
+            </label>
+            <input
+              id="report-email"
+              type="email"
+              value={emailTo}
+              onChange={(e) => setEmailTo(e.target.value)}
+              placeholder="email@exemplo.com"
+              className="mt-1.5 w-full rounded-lg border border-neutral-300 px-4 py-3 text-neutral-900 placeholder:text-neutral-400 focus:border-red-600 focus:outline-none"
+            />
+            {emailMsg && (
+              <p
+                className={`mt-3 rounded-lg p-3 text-center text-sm font-medium ${
+                  emailMsg.ok ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
+                }`}
+              >
+                {emailMsg.text}
+              </p>
+            )}
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setEmailModalOpen(false)}
+                disabled={sending}
+                className="flex-1 rounded-lg border border-neutral-300 px-4 py-2.5 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSendEmail}
+                disabled={!emailTo.trim() || sending}
+                className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {sending ? "Enviando..." : "Enviar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal — Editar perfil */}
+      {editOpen && (
+        <EditStudentModal student={student} onClose={() => setEditOpen(false)} />
       )}
     </div>
   );

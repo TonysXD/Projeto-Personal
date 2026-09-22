@@ -66,13 +66,6 @@ function calcBMI(weight: number, heightCm: number) {
   return weight / (h * h);
 }
 
-function bmiLabel(bmi: number) {
-  if (bmi < 18.5) return "Abaixo do peso";
-  if (bmi < 25) return "Peso normal";
-  if (bmi < 30) return "Sobrepeso";
-  return "Obesidade";
-}
-
 function calcAge(birth: string) {
   const b = new Date(birth + "T12:00:00");
   const now = new Date();
@@ -214,7 +207,7 @@ async function buildReportPdf(student: any, rows: RawRecord[], photosByRecord: M
     {
       label: "IMC",
       value: currBmi != null ? currBmi.toFixed(1) : "—",
-      sub: currBmi != null ? bmiLabel(currBmi) : "",
+      sub: "",
     },
     { label: "Registros", value: String(rows.length), sub: "" },
     {

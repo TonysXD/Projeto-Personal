@@ -20,7 +20,7 @@ export default async function AdminDashboard() {
   const totalStudents = (students ?? []).length;
   const activeStudents = (students ?? []).filter((s) => s.status === "ativo").length;
 
-  // ===== AULAS AGENDADAS (o contador corrigido) =====
+  // ===== AULAS AGENDADAS =====
   const activeSlots = (slots ?? []).filter((s) => s.active).length;
   const upcomingAppointments = (appointments ?? []).filter(
     (a) => a.active && a.status !== "cancelado"
@@ -34,6 +34,7 @@ export default async function AdminDashboard() {
   const month = today.slice(0, 7);
 
   for (const p of payments ?? []) {
+    if (p.status === "cancelado") continue; // inativação de aluno — fora das contas
     const isPaid = p.status === "pago";
     const isOverdue = !isPaid && p.due_date < today;
     if (!isPaid) toReceive += Number(p.amount ?? 0);

@@ -38,6 +38,11 @@ const tabs = [
   { id: "notas", label: "Notas" },
 ];
 
+function todayLocalISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function Field({ label, value }: { label: string; value?: string | null }) {
   return (
     <div>
@@ -81,27 +86,110 @@ export default function StudentProfile({
   const [toggling, setToggling] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  async function toggleStatus() {
-    const next = status === "ativo" ? "inativo" : "ativo";
+  // Modal de confirmação de inativação
+  const [inactivateOpen, setInactivateOpen] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [inactivating, setInactivating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-    if (next === "inativo") {
-      const ok = confirm(
-        "Inativar este aluno? O histórico completo (pagamentos, evolução, fotos) será mantido."
-      );
-      if (!ok) return;
-    }
+  // CORREÇÃO: comparação insensível a maiúsculas/minúsculas
+  // (antes era === "INATIVAR" e falhava se digitasse "inativar")
+  const canInactivate = typed.trim().toUpperCase() === "INATIVAR";
 
+  async function reactivateStudent() {
     setToggling(true);
     const { error } = await supabase
       .from("students")
-      .update({ status: next })
+      .update({ status: "ativo" })
       .eq("id", student.id);
 
     if (!error) {
-      setStatus(next);
+      setStatus("ativo");
       router.refresh();
     }
     setToggling(false);
+  }
+
+  async function inactivateStudent() {
+    if (!canInactivate || inactivating) return;
+    setInactivating(true);
+    setError(null);
+
+    try {
+      const reason = `Aluno inativado em ${formatDateBR(todayLocalISO())}`;
+
+      // 1) Desativa horários fixos (preserva histórico, some da agenda)
+      const { data: slots } = await supabase
+        .from("schedule_slots")
+        .select("id")
+        .eq("student_id", student.id);
+      if (slots && slots.length > 0) {
+        await supabase
+          .from("schedule_slots")
+          .update({ active: false, reason })
+          .in("id", slots.map((s) => s.id));
+      }
+
+      // 2) Cancela agendamentos avulsos futuros não concluídos (data >= hoje)
+      const { data: apps } = await supabase
+        .from("appointments")
+        .select("id")
+        .eq("student_id", student.id)
+        .gte("appointment_date", todayLocalISO())
+        .neq("status", "concluido");
+      if (apps && apps.length > 0) {
+        await supabase
+          .from("appointments")
+          .update({ status: "cancelado", active: false, reason })
+          .in("id", apps.map((a) => a.id));
+      }
+
+      // 3) Cancela pagamentos pendentes (nunca apaga histórico financeiro)
+      const { data: pending } = await supabase
+        .from("payments")
+        .select("id, notes")
+        .eq("student_id", student.id)
+        .eq("status", "pendente");
+      if (pending && pending.length > 0) {
+        for (const p of pending) {
+          const suffix = `— Cancelado: aluno inativado em ${formatDateBR(todayLocalISO())}`;
+          const notes = p.notes ? `${p.notes} ${suffix}` : suffix;
+          await supabase
+            .from("payments")
+            .update({ status: "cancelado", notes })
+            .eq("id", p.id);
+        }
+      }
+
+      // 4) Encerra a vigência do plano na data atual, se ainda ativa
+      const { data: cur } = await supabase
+        .from("students")
+        .select("plan_end")
+        .eq("id", student.id)
+        .single();
+      if (cur && (!cur.plan_end || cur.plan_end > todayLocalISO())) {
+        await supabase
+          .from("students")
+          .update({ plan_end: todayLocalISO() })
+          .eq("id", student.id);
+      }
+
+      // 5) Marca o aluno como inativo
+      const { error: err } = await supabase
+        .from("students")
+        .update({ status: "inativo" })
+        .eq("id", student.id);
+      if (err) throw err;
+
+      setInactivateOpen(false);
+      setTyped("");
+      setStatus("inativo");
+      setInactivating(false);
+      router.refresh();
+    } catch {
+      setError("Não foi possível inativar o aluno. Tente novamente.");
+      setInactivating(false);
+    }
   }
 
   async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -181,21 +269,27 @@ export default function StudentProfile({
           >
             {status}
           </span>
-          <button
-            onClick={toggleStatus}
-            disabled={toggling}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition duration-200 disabled:opacity-50 ${
-              status === "ativo"
-                ? "border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
-                : "bg-green-600 text-white hover:bg-green-700"
-            }`}
-          >
-            {toggling
-              ? "Salvando..."
-              : status === "ativo"
-              ? "Inativar aluno"
-              : "Reativar aluno"}
-          </button>
+          {status === "ativo" ? (
+            <button
+              onClick={() => {
+                setError(null);
+                setTyped("");
+                setInactivateOpen(true);
+              }}
+              disabled={toggling}
+              className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition duration-200 hover:bg-red-100 disabled:opacity-50"
+            >
+              Inativar aluno
+            </button>
+          ) : (
+            <button
+              onClick={reactivateStudent}
+              disabled={toggling}
+              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700 disabled:opacity-50"
+            >
+              {toggling ? "Salvando..." : "Reativar aluno"}
+            </button>
+          )}
 
           {/* Botão Relatório PDF — abre o PDF em nova aba para baixar/enviar */}
           <a
@@ -290,6 +384,65 @@ export default function StudentProfile({
       {(tab === "pagamentos" || tab === "agenda" || tab === "notas") && (
         <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-10 text-center text-neutral-500">
           Módulo em desenvolvimento — disponível nas próximas fases.
+        </div>
+      )}
+
+      {/* Modal de confirmação — Inativar */}
+      {inactivateOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-bold text-neutral-900">Inativar aluno</h2>
+            <p className="mt-2 text-sm text-neutral-600">
+              Você está prestes a inativar <strong>{capitalizeName(student.name)}</strong>. Esta ação:
+            </p>
+            <ul className="mt-3 list-inside space-y-1 text-sm text-neutral-600">
+              <li>• Cancela as aulas agendadas (elas saem da agenda);</li>
+              <li>• Cancela os pagamentos pendentes;</li>
+              <li>• Encerra a vigência do plano na data de hoje;</li>
+              <li>• Deve ser usada apenas quando tudo estiver acertado entre aluno e personal.</li>
+            </ul>
+            <p className="mt-3 text-sm text-neutral-600">
+              O histórico (pagamentos, evolução, fotos) é preservado. O aluno poderá ser reativado depois.
+            </p>
+
+            <label htmlFor="confirm-inactivate" className="mt-4 block text-sm font-semibold text-neutral-800">
+              Digite <span className="font-mono text-red-600">INATIVAR</span> para confirmar
+            </label>
+            <input
+              id="confirm-inactivate"
+              type="text"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value.toUpperCase())}
+              placeholder="INATIVAR"
+              autoComplete="off"
+              className="mt-1.5 w-full rounded-lg border border-neutral-300 px-4 py-3 text-neutral-900 placeholder:text-neutral-400 focus:border-red-600 focus:outline-none"
+            />
+
+            {error && (
+              <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-center text-sm font-medium text-red-800">
+                {error}
+              </p>
+            )}
+
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setInactivateOpen(false)}
+                disabled={inactivating}
+                className="flex-1 rounded-lg border border-neutral-300 px-4 py-2.5 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={inactivateStudent}
+                disabled={!canInactivate || inactivating}
+                className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {inactivating ? "Inativando..." : "Inativar aluno"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

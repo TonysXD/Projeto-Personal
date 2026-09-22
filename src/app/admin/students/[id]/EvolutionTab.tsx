@@ -13,6 +13,7 @@ export type EvolutionRecord = {
   record_date: string;
   weight: number | null;
   height: number | null;
+  height_source: string | null;
   body_fat: number | null;
   measurements: Record<string, number> | null;
   notes: string | null;
@@ -24,17 +25,17 @@ const inputClasses =
   "w-full rounded-lg border border-neutral-300 bg-white px-4 py-3 text-neutral-900 placeholder:text-neutral-400 transition duration-200 focus:border-red-600";
 const labelClasses = "mb-1.5 block text-sm font-semibold text-neutral-800";
 
+const HEIGHT_SOURCE_LABELS: Record<string, string> = {
+  medida_local: "Medida no local",
+  informada_aluno: "Informada pelo aluno",
+  laudo_medico: "Laudo médico",
+  outro: "Outro",
+};
+
 function calcBMI(weight: number, heightCm: number) {
   if (!weight || !heightCm || heightCm <= 0) return null;
   const h = heightCm / 100;
   return weight / (h * h);
-}
-
-function bmiInfo(bmi: number) {
-  if (bmi < 18.5) return { label: "Abaixo do peso", badge: "bg-blue-100 text-blue-800" };
-  if (bmi < 25) return { label: "Peso normal", badge: "bg-green-100 text-green-800" };
-  if (bmi < 30) return { label: "Sobrepeso", badge: "bg-amber-100 text-amber-800" };
-  return { label: "Obesidade", badge: "bg-red-100 text-red-800" };
 }
 
 function todayLocalISO() {
@@ -64,6 +65,7 @@ export default function EvolutionTab({
   const [date, setDate] = useState(todayLocalISO());
   const [weight, setWeight] = useState("");
   const [height, setHeight] = useState(last?.height ? String(last.height) : "");
+  const [heightSource, setHeightSource] = useState(last?.height_source ?? "");
   const [bodyFat, setBodyFat] = useState("");
   const [waist, setWaist] = useState("");
   const [arm, setArm] = useState("");
@@ -78,7 +80,6 @@ export default function EvolutionTab({
   const w = parseFloat(weight.replace(",", "."));
   const h = parseFloat(height.replace(",", "."));
   const bmi = calcBMI(w, h);
-  const bmiResult = bmi ? bmiInfo(bmi) : null;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -104,6 +105,7 @@ export default function EvolutionTab({
         record_date: date,
         weight: w,
         height: h,
+        height_source: heightSource || null,
         body_fat: parseFloat(bodyFat) || null,
         measurements: Object.keys(measurements).length ? measurements : null,
         notes: notes || null,
@@ -181,7 +183,7 @@ export default function EvolutionTab({
           <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">IMC atual</p>
           <p className="mt-1 text-2xl font-bold text-neutral-900">
             {last && last.weight != null && last.height
-              ? calcBMI(last.weight, last.height)?.toFixed(1)
+              ? `${calcBMI(last.weight, last.height)?.toFixed(1)} kg/m²`
               : "—"}
           </p>
         </div>
@@ -209,20 +211,34 @@ export default function EvolutionTab({
             <input id="ev-height" type="number" step="0.1" min="0" className={inputClasses} value={height} onChange={(e) => setHeight(e.target.value)} placeholder="ex.: 175" required />
           </div>
           <div>
+            <label htmlFor="ev-height-source" className={labelClasses}>Origem da altura</label>
+            <select
+              id="ev-height-source"
+              className={inputClasses}
+              value={heightSource}
+              onChange={(e) => setHeightSource(e.target.value)}
+            >
+              <option value="">Selecione...</option>
+              {Object.entries(HEIGHT_SOURCE_LABELS).map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label htmlFor="ev-fat" className={labelClasses}>% de gordura</label>
             <input id="ev-fat" type="number" step="0.1" min="0" className={inputClasses} value={bodyFat} onChange={(e) => setBodyFat(e.target.value)} placeholder="opcional" />
           </div>
         </div>
 
-        {/* IMC calculado ao vivo */}
-        <div className={`mt-4 rounded-lg p-4 ${bmiResult ? bmiResult.badge : "bg-neutral-50"}`}>
-          {bmi ? (
-            <p className="text-sm font-semibold">
-              IMC: <span className="text-lg font-bold">{bmi.toFixed(1)}</span> — {bmiResult?.label}
-            </p>
-          ) : (
-            <p className="text-sm text-neutral-500">Preencha peso e altura para calcular o IMC automaticamente.</p>
-          )}
+        {/* IMC calculado ao vivo — apenas número, sem classificação */}
+        <div className="mt-4 rounded-lg bg-neutral-50 p-4">
+          <p className="text-sm text-neutral-600">
+            {bmi ? (
+              <>IMC: <span className="text-lg font-bold text-neutral-900">{bmi.toFixed(1)} kg/m²</span></>
+            ) : (
+              "Preencha peso e altura para calcular o IMC."
+            )}
+          </p>
         </div>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -291,16 +307,13 @@ export default function EvolutionTab({
           <div className="mt-4 space-y-4">
             {initialRecords.map((r) => {
               const rBmi = r.weight != null && r.height ? calcBMI(r.weight, r.height) : null;
-              const rInfo = rBmi ? bmiInfo(rBmi) : null;
               return (
                 <div key={r.id} className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-3">
                       <h3 className="text-base font-bold text-neutral-900">{formatDateBR(r.record_date)}</h3>
-                      {rInfo && (
-                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${rInfo.badge}`}>
-                          IMC {rBmi?.toFixed(1)} · {rInfo.label}
-                        </span>
+                      {rBmi && (
+                        <span className="text-sm text-neutral-500">IMC {rBmi.toFixed(1)} kg/m²</span>
                       )}
                     </div>
                     <button
@@ -319,7 +332,10 @@ export default function EvolutionTab({
                     </div>
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Altura</p>
-                      <p className="text-neutral-800">{r.height ? `${r.height} cm` : "—"}</p>
+                      <p className="text-neutral-800">
+                        {r.height ? `${r.height} cm` : "—"}
+                        {r.height_source ? ` · ${HEIGHT_SOURCE_LABELS[r.height_source] ?? r.height_source}` : ""}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">% gordura</p>

@@ -52,16 +52,17 @@ const labelClasses = "mb-1.5 block text-sm font-semibold text-neutral-800";
 
 function StatusBadge({ status, dueDate }: { status: string; dueDate: string }) {
   const pago = status === "pago";
-  const atrasado =
-    !pago && dueDate && dueDate < todayISO();
+  const cancelado = status === "cancelado";
+  const atrasado = !pago && !cancelado && dueDate && dueDate < todayISO();
 
   const map: Record<string, { label: string; cls: string }> = {
     pago: { label: "Pago", cls: "bg-green-100 text-green-800" },
     atrasado: { label: "Atrasado", cls: "bg-red-100 text-red-800" },
     pendente: { label: "Pendente", cls: "bg-amber-100 text-amber-800" },
+    cancelado: { label: "Cancelado", cls: "bg-neutral-100 text-neutral-500" },
   };
 
-  const current = pago ? map.pago : atrasado ? map.atrasado : map.pendente;
+  const current = pago ? map.pago : cancelado ? map.cancelado : atrasado ? map.atrasado : map.pendente;
 
   return (
     <span
@@ -80,6 +81,8 @@ const emptyForm = {
   notes: "",
 };
 
+type PaymentStatus = "pago" | "atrasado" | "pendente" | "cancelado";
+
 export default function PaymentsClient({
   initialPayments,
   students,
@@ -90,7 +93,7 @@ export default function PaymentsClient({
   const router = useRouter();
   const supabase = createClient();
 
-  const [filter, setFilter] = useState<"todos" | "pago" | "pendente" | "atrasado">("todos");
+  const [filter, setFilter] = useState<"todos" | PaymentStatus>("todos");
   const [payments, setPayments] = useState<Payment[]>(initialPayments);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -103,8 +106,9 @@ export default function PaymentsClient({
     return map;
   }, [students]);
 
-  const paymentStatus = (p: Payment): "pago" | "atrasado" | "pendente" => {
+  const paymentStatus = (p: Payment): PaymentStatus => {
     if (p.status === "pago") return "pago";
+    if (p.status === "cancelado") return "cancelado";
     if (p.due_date < todayISO()) return "atrasado";
     return "pendente";
   };
@@ -121,6 +125,7 @@ export default function PaymentsClient({
     let pendentes = 0;
     for (const p of payments) {
       const s = paymentStatus(p);
+      if (s === "cancelado") continue;
       if (s === "pago") pagos += p.amount;
       if (s === "atrasado") atrasados += p.amount;
       if (s === "pendente") pendentes += p.amount;
@@ -221,7 +226,7 @@ export default function PaymentsClient({
 
       {/* Filtros */}
       <div className="flex flex-wrap gap-2">
-        {(["todos", "pendente", "atrasado", "pago"] as const).map((f) => (
+        {(["todos", "pendente", "atrasado", "pago", "cancelado"] as const).map((f) => (
           <button
             key={f}
             type="button"
@@ -232,7 +237,15 @@ export default function PaymentsClient({
                 : "border border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50"
             }`}
           >
-            {f === "todos" ? "Todos" : f === "pago" ? "Pagos" : f === "atrasado" ? "Atrasados" : "Pendentes"}
+            {f === "todos"
+              ? "Todos"
+              : f === "pago"
+              ? "Pagos"
+              : f === "atrasado"
+              ? "Atrasados"
+              : f === "pendente"
+              ? "Pendentes"
+              : "Cancelados"}
           </button>
         ))}
       </div>
@@ -271,7 +284,7 @@ export default function PaymentsClient({
                     <StatusBadge status={p.status} dueDate={p.due_date} />
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {p.status !== "pago" ? (
+                    {p.status !== "pago" && p.status !== "cancelado" ? (
                       <button
                         type="button"
                         onClick={() => markAsPaid(p)}

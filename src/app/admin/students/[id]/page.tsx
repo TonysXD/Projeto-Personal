@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import StudentProfile from "./StudentProfile";
+import StudentProfile from "@/components/students/StudentProfile";
 
 export default async function StudentPage({
   params,
@@ -18,11 +18,11 @@ export default async function StudentPage({
 
   if (!student) {
     return (
-      <div className="rounded-xl border border-neutral-200 bg-white p-10 text-center">
-        <p className="text-neutral-500">Aluno não encontrado.</p>
-        <Link href="/admin/students" className="mt-4 inline-block text-sm font-semibold text-red-600 hover:underline">
-          ← Voltar para a lista
+      <div className="space-y-4">
+        <Link href="/admin/students" className="text-sm text-neutral-500 hover:text-neutral-800">
+          ← Alunos
         </Link>
+        <p className="text-neutral-600">Aluno não encontrado.</p>
       </div>
     );
   }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { capitalizeName } from "@/lib/format";
-import DeleteStudentButton from "./DeleteStudentButton";
+import DeleteStudentButton from "@/components/students/DeleteStudentButton";
 
 export default async function StudentsPage() {
   const supabase = await createClient();

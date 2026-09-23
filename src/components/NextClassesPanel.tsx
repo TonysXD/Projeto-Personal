@@ -1,13 +1,8 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import { capitalizeName, formatDateBR } from "@/lib/format";
-
-/* ============================================================
-   Painel de Próximas Aulas — navega com setas ‹ ›
-   Recebe a lista ordenada (fixas materializadas + avulsas)
-   e mostra UMA aula por vez, com foto, nome, data e horário.
-   ============================================================ */
+import { Badge } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 type PanelStudent = {
   name: string;
@@ -19,18 +14,18 @@ type PanelStudent = {
 export type PanelItem = {
   key: string;
   kind: "fixa" | "avulsa";
-  date: string; // YYYY-MM-DD
-  start_time: string; // HH:mm:ss
+  date: string;
+  start_time: string;
   end_time: string;
   status: string;
   student: PanelStudent | null;
 };
 
-const STATUS_META: Record<string, { label: string; cls: string }> = {
-  agendado: { label: "Agendado", cls: "bg-blue-100 text-blue-800" },
-  reagendado: { label: "Reagendado", cls: "bg-amber-100 text-amber-800" },
-  cancelado: { label: "Cancelado", cls: "bg-red-100 text-red-800" },
-  concluido: { label: "Concluído", cls: "bg-green-100 text-green-800" },
+const STATUS_BADGE: Record<string, { variant: "info" | "warning" | "danger" | "success"; label: string }> = {
+  agendado: { variant: "info", label: "Agendado" },
+  reagendado: { variant: "warning", label: "Reagendado" },
+  cancelado: { variant: "danger", label: "Cancelado" },
+  concluido: { variant: "success", label: "Concluído" },
 };
 
 function formatTimeBR(t?: string | null) {
@@ -46,7 +41,6 @@ function weekdayLabel(date: string) {
 export default function NextClassesPanel({ items }: { items: PanelItem[] }) {
   const [index, setIndex] = useState(0);
 
-  // Se a lista encolher, mantém o índice dentro dos limites
   useEffect(() => {
     if (items.length > 0 && index >= items.length) {
       setIndex(items.length - 1);
@@ -55,26 +49,24 @@ export default function NextClassesPanel({ items }: { items: PanelItem[] }) {
 
   const current = items.length > 0 ? items[Math.min(index, items.length - 1)] : null;
 
-  /* ---------- Estado vazio ---------- */
   if (!current) {
     return (
-      <section className="rounded-xl border border-dashed border-neutral-300 bg-white p-8 text-center">
-        <p className="text-sm font-medium text-neutral-500">Nenhuma aula agendada</p>
-        <p className="mt-1 text-xs text-neutral-400">
-          As próximas aulas (fixas e avulsas) aparecerão aqui.
-        </p>
+      <section className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+        <EmptyState
+          title="Nenhuma aula agendada"
+          description="As próximas aulas (fixas e avulsas) aparecerão aqui."
+        />
       </section>
     );
   }
 
-  const status = STATUS_META[current.status] ?? STATUS_META.agendado;
+  const status = STATUS_BADGE[current.status] ?? STATUS_BADGE.agendado;
   const initials = (current.student?.name ?? "?")
     .split(" ")
     .map((n: string) => n[0])
     .slice(0, 2)
     .join("")
     .toUpperCase();
-
   const prevDisabled = index <= 0;
   const nextDisabled = index >= items.length - 1;
 
@@ -91,13 +83,9 @@ export default function NextClassesPanel({ items }: { items: PanelItem[] }) {
           </svg>
           <div>
             <h2 className="text-sm font-bold text-white">Próximas aulas</h2>
-            <p className="text-xs text-red-100">
-              {index + 1} de {items.length}
-            </p>
+            <p className="text-xs text-red-100">{index + 1} de {items.length}</p>
           </div>
         </div>
-
-        {/* Setas de navegação */}
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -138,7 +126,6 @@ export default function NextClassesPanel({ items }: { items: PanelItem[] }) {
             {initials}
           </div>
         )}
-
         <div className="min-w-0 flex-1">
           <p className="truncate text-lg font-bold text-neutral-900">
             {capitalizeName(current.student?.name ?? "Aluno")}
@@ -148,21 +135,14 @@ export default function NextClassesPanel({ items }: { items: PanelItem[] }) {
             {current.student?.plan_name ? ` · ${current.student.plan_name}` : ""}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                current.kind === "fixa"
-                  ? "bg-violet-100 text-violet-700"
-                  : "bg-sky-100 text-sky-700"
-              }`}
-            >
+            <Badge variant={current.kind === "fixa" ? "violet" : "info"}>
               {current.kind === "fixa" ? "Aula fixa" : "Aula avulsa"}
-            </span>
-            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${status.cls}`}>
+            </Badge>
+            <Badge variant={status.variant} dot>
               {status.label}
-            </span>
+            </Badge>
           </div>
         </div>
-
         <div className="shrink-0 text-right">
           <p className="text-base font-bold text-neutral-900">{formatDateBR(current.date)}</p>
           <p className="text-xs capitalize text-neutral-500">{weekdayLabel(current.date)}</p>

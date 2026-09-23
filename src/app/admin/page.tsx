@@ -2,6 +2,9 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { capitalizeName, formatDateBR } from "@/lib/format";
 import NextClassesPanel, { type PanelItem } from "@/components/NextClassesPanel";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 /* ============================================================
    Helpers de data no fuso do Brasil (America/Sao_Paulo)
@@ -28,7 +31,7 @@ function weekRangeBR() {
   const br = new Date(
     new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" })
   );
-  const day = br.getDay(); // 0 = domingo
+  const day = br.getDay();
   const diffToMonday = day === 0 ? -6 : 1 - day;
   const monday = new Date(br);
   monday.setDate(br.getDate() + diffToMonday);
@@ -52,11 +55,11 @@ function formatTimeBR(time: string | null | undefined) {
   return time?.slice(0, 5) ?? "--:--";
 }
 
-const STATUS_META: Record<string, { label: string; cls: string }> = {
-  agendado: { label: "Agendado", cls: "bg-blue-100 text-blue-800" },
-  reagendado: { label: "Reagendado", cls: "bg-amber-100 text-amber-800" },
-  cancelado: { label: "Cancelado", cls: "bg-red-100 text-red-800" },
-  concluido: { label: "Concluído", cls: "bg-green-100 text-green-800" },
+const STATUS_BADGE: Record<string, { variant: "info" | "warning" | "danger" | "success"; label: string }> = {
+  agendado: { variant: "info", label: "Agendado" },
+  reagendado: { variant: "warning", label: "Reagendado" },
+  cancelado: { variant: "danger", label: "Cancelado" },
+  concluido: { variant: "success", label: "Concluído" },
 };
 
 /* ============================================================
@@ -74,7 +77,7 @@ type StudentSummary = {
 type SlotRow = {
   id: string;
   student_id: string;
-  weekday: number; // 0 = domingo ... 6 = sábado
+  weekday: number;
   start_time: string;
   end_time: string;
   active: boolean;
@@ -128,24 +131,19 @@ export default async function AdminDashboard() {
   // ===== Contadores =====
   const totalStudents = (students ?? []).length;
   const activeStudents = (students ?? []).filter((s) => s.status === "ativo").length;
-
   const activeSlots = slotRows.filter((s) => s.active).length;
-
   const activeAppointments = appointmentRows.filter(
     (a) => a.status !== "cancelado" && a.status !== "concluido" && a.active !== false
   );
-
   const scheduledClasses = activeSlots + activeAppointments.length;
 
   /* ============================================================
      MATERIALIZAÇÃO: transforma horários fixos (weekday) em
-     datas concretas (dia da semana + dia do mês) para os
-     próximos 28 dias — e une tudo em uma lista ordenada.
+     datas concretas para os próximos 28 dias — e une tudo.
      ============================================================ */
   const rangeEnd = addDaysISO(today, 27);
   const merged: MergedClass[] = [];
 
-  // Aulas avulsas
   for (const a of activeAppointments) {
     merged.push({
       key: `app-${a.id}`,
@@ -158,7 +156,6 @@ export default async function AdminDashboard() {
     });
   }
 
-  // Aulas fixas — uma ocorrência para cada data cujo dia da semana bate
   for (const s of slotRows) {
     if (!s.active) continue;
     const d = new Date(today + "T12:00:00");
@@ -179,15 +176,11 @@ export default async function AdminDashboard() {
     }
   }
 
-  // Ordena por data e horário
   merged.sort((x, y) =>
     x.date === y.date ? x.start_time.localeCompare(y.start_time) : x.date.localeCompare(y.date)
   );
 
-  // ===== Próximas aulas (painel interativo) =====
   const nextClasses = merged;
-
-  // ===== Aulas da semana =====
   const weekClasses = merged.filter(
     (m) => m.date >= week.start && m.date <= week.end
   );
@@ -209,8 +202,6 @@ export default async function AdminDashboard() {
   let toReceive = 0;
   let overdue = 0;
   let overdueCount = 0;
-  const month = today.slice(0, 7);
-
   for (const p of payments ?? []) {
     if (p.status === "cancelado") continue;
     const isPaid = p.status === "pago";
@@ -256,7 +247,6 @@ export default async function AdminDashboard() {
     },
   ];
 
-  // Prepara os itens do painel interativo (com dados do aluno já juntados)
   const panelItems: PanelItem[] = nextClasses.map((m) => ({
     key: m.key,
     kind: m.kind,
@@ -286,49 +276,42 @@ export default async function AdminDashboard() {
         ))}
       </div>
 
-      {/* ===== PRÓXIMAS AULAS (interativo, com setas) ===== */}
+      {/* ===== PRÓXIMAS AULAS ===== */}
       <NextClassesPanel items={panelItems} />
 
       {/* ===== AULAS DA SEMANA ===== */}
-      <section className="rounded-xl border border-neutral-200 bg-white shadow-sm">
-        <div className="border-b border-neutral-100 px-6 py-4">
-          <h2 className="text-sm font-bold text-neutral-900">Aulas da semana</h2>
-          <p className="text-xs text-neutral-500">
+      <Card
+        title="Aulas da semana"
+        action={
+          <span className="text-xs text-neutral-500">
             {week.days[0].weekday}, {week.days[0].dayNum} — {week.days[6].weekday}, {week.days[6].dayNum}
-          </p>
-        </div>
-
+          </span>
+        }
+      >
         {weekClasses.length === 0 ? (
-          <p className="px-6 py-10 text-center text-sm text-neutral-500">
-            Nenhuma aula nesta semana.
-          </p>
+          <EmptyState
+            title="Nenhuma aula nesta semana"
+            description="As aulas do período aparecerão aqui."
+          />
         ) : (
           <div className="divide-y divide-neutral-100">
             {week.days.map((day) => {
               const dayClasses = weekClasses.filter((m) => m.date === day.date);
               if (dayClasses.length === 0) return null;
-
               return (
                 <div key={day.date} className="px-6 py-4">
                   <div className="flex items-center gap-2">
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        day.date === today
-                          ? "bg-red-600 text-white"
-                          : "bg-neutral-100 text-neutral-600"
-                      }`}
-                    >
+                    <Badge variant={day.date === today ? "danger" : "neutral"}>
                       {day.weekday} · {day.dayNum}
-                    </span>
+                    </Badge>
                     {day.date === today && (
                       <span className="text-xs font-semibold text-red-600">Hoje</span>
                     )}
                   </div>
-
                   <div className="mt-3 space-y-2">
                     {dayClasses.map((m) => {
                       const student = studentById.get(m.student_id);
-                      const status = STATUS_META[m.status] ?? STATUS_META.agendado;
+                      const status = STATUS_BADGE[m.status] ?? STATUS_BADGE.agendado;
                       return (
                         <div
                           key={m.key}
@@ -354,18 +337,12 @@ export default async function AdminDashboard() {
                               {formatTimeBR(m.start_time)} – {formatTimeBR(m.end_time)}
                             </p>
                           </div>
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                              m.kind === "fixa"
-                                ? "bg-violet-100 text-violet-700"
-                                : "bg-sky-100 text-sky-700"
-                            }`}
-                          >
+                          <Badge variant={m.kind === "fixa" ? "violet" : "info"}>
                             {m.kind === "fixa" ? "Fixa" : "Avulsa"}
-                          </span>
-                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${status.cls}`}>
+                          </Badge>
+                          <Badge variant={status.variant} dot>
                             {status.label}
-                          </span>
+                          </Badge>
                         </div>
                       );
                     })}
@@ -375,7 +352,7 @@ export default async function AdminDashboard() {
             })}
           </div>
         )}
-      </section>
+      </Card>
     </div>
   );
 }

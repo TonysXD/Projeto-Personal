@@ -10,6 +10,11 @@ import AgendaTab from "./AgendaTab";
 import NotesTab from "./NotesTab";
 import EditStudentModal from "./EditStudentModal";
 import DeleteStudentButton from "../DeleteStudentButton";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Modal } from "@/components/ui/Modal";
+import { Input } from "@/components/ui/Input";
+import { Badge } from "@/components/ui/Badge";
 
 type Student = {
   id: string;
@@ -63,15 +68,6 @@ function calcAge(birth: string) {
   const m = now.getMonth() - b.getMonth();
   if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--;
   return age;
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-      <h2 className="text-sm font-bold uppercase tracking-wide text-neutral-400">{title}</h2>
-      <div className="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
-    </section>
-  );
 }
 
 export default function StudentProfile({
@@ -281,20 +277,11 @@ export default function StudentProfile({
             <p className="mt-0.5 truncate text-sm text-neutral-500">
               {student.whatsapp ?? "Sem WhatsApp"}
             </p>
-            <span
-              className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                status === "ativo"
-                  ? "bg-green-50 text-green-700"
-                  : "bg-red-50 text-red-700"
-              }`}
-            >
-              <span
-                className={`h-1.5 w-1.5 rounded-full ${
-                  status === "ativo" ? "bg-green-500" : "bg-red-500"
-                }`}
-              />
-              {status === "ativo" ? "Ativo" : "Inativo"}
-            </span>
+            <div className="mt-2">
+              <Badge variant={status === "ativo" ? "success" : "danger"} dot>
+                {status === "ativo" ? "Ativo" : "Inativo"}
+              </Badge>
+            </div>
           </div>
         </div>
 
@@ -318,11 +305,7 @@ export default function StudentProfile({
 
           {/* Botão Exportar PDF com menu */}
           <div className="relative">
-            <button
-              type="button"
-              onClick={() => setExportOpen((v) => !v)}
-              className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-neutral-900 px-4 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/40 active:scale-[0.98]"
-            >
+            <Button variant="primary" onClick={() => setExportOpen((v) => !v)}>
               <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
               </svg>
@@ -330,7 +313,7 @@ export default function StudentProfile({
               <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 opacity-70">
                 <path d="m6 9 6 6 6-6" />
               </svg>
-            </button>
+            </Button>
             {exportOpen && (
               <>
                 <div className="fixed inset-0 z-30" onClick={() => setExportOpen(false)} />
@@ -372,42 +355,34 @@ export default function StudentProfile({
           <div className="hidden h-6 w-px bg-neutral-200 sm:block" aria-hidden="true" />
 
           {/* Grupo 2 — Manutenção */}
-          <button
-            type="button"
-            onClick={() => setEditOpen(true)}
-            className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-neutral-300 bg-white px-4 text-sm font-semibold text-neutral-700 transition-all duration-200 hover:border-neutral-400 hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 active:scale-[0.98]"
-          >
+          <Button variant="secondary" onClick={() => setEditOpen(true)}>
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
             </svg>
             Editar
-          </button>
+          </Button>
 
           {/* Separador entre manutenção e ações de risco */}
           <div className="hidden h-6 w-px bg-neutral-200 sm:block" aria-hidden="true" />
 
           {/* Grupo 3 — Estado e exclusão (ações de risco) */}
           {status === "ativo" ? (
-            <button
+            <Button
+              variant="dangerOutline"
               onClick={() => {
                 setError(null);
                 setTyped("");
                 setInactivateOpen(true);
               }}
               disabled={toggling}
-              className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-700 transition-all duration-200 hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600/40 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
             >
               Inativar aluno
-            </button>
+            </Button>
           ) : (
-            <button
-              onClick={reactivateStudent}
-              disabled={toggling}
-              className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-green-600 px-4 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600/40 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
-            >
+            <Button variant="success" onClick={reactivateStudent} disabled={toggling}>
               {toggling ? "Salvando..." : "Reativar aluno"}
-            </button>
+            </Button>
           )}
 
           <DeleteStudentButton studentId={student.id} studentName={student.name} />
@@ -434,47 +409,52 @@ export default function StudentProfile({
       {/* Aba Dados */}
       {tab === "dados" && (
         <div className="space-y-6">
-          <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-neutral-400">Foto do aluno</h2>
-            <div className="mt-3">
-              {photoUrl ? (
-                <img
-                  src={photoUrl}
-                  alt={`Foto de ${student.name}`}
-                  className="h-48 w-48 rounded-xl object-cover"
-                />
-              ) : (
-                <p className="text-neutral-500">Nenhuma foto cadastrada. Clique no botão de câmera no topo para adicionar.</p>
-              )}
+          <Card title="Foto do aluno">
+            {photoUrl ? (
+              <img
+                src={photoUrl}
+                alt={`Foto de ${student.name}`}
+                className="h-48 w-48 rounded-xl object-cover"
+              />
+            ) : (
+              <p className="text-neutral-500">Nenhuma foto cadastrada. Clique no botão de câmera no topo para adicionar.</p>
+            )}
+          </Card>
+          <Card title="Dados pessoais">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <Field label="Nome completo" value={capitalizeName(student.name)} />
+              <Field label="Data de nascimento" value={formatDateBR(student.birth_date)} />
+              <Field label="Idade" value={student.birth_date ? String(calcAge(student.birth_date)) : null} />
+              <Field label="WhatsApp" value={student.whatsapp} />
+              <Field label="E-mail" value={student.email} />
+              <Field label="Gênero" value={student.gender} />
+              <Field label="Bairro" value={student.neighborhood} />
+              <Field label="Endereço completo" value={student.address} />
             </div>
-          </section>
-          <Section title="Dados pessoais">
-            <Field label="Nome completo" value={capitalizeName(student.name)} />
-            <Field label="Data de nascimento" value={formatDateBR(student.birth_date)} />
-            <Field label="Idade" value={student.birth_date ? String(calcAge(student.birth_date)) : null} />
-            <Field label="WhatsApp" value={student.whatsapp} />
-            <Field label="E-mail" value={student.email} />
-            <Field label="Gênero" value={student.gender} />
-            <Field label="Bairro" value={student.neighborhood} />
-            <Field label="Endereço completo" value={student.address} />
-          </Section>
-          <Section title="Saúde e treino">
-            <Field label="Objetivo principal" value={student.goal} />
-            <Field label="Restrições ou lesões" value={student.restrictions} />
-            <Field label="Condicionamento atual" value={student.fitness_level} />
-            <Field label="Experiência com treino" value={student.training_experience} />
-            <Field label="Frequência desejada" value={student.weekly_frequency ? `${student.weekly_frequency}x/semana` : null} />
-          </Section>
-          <Section title="Plano e financeiro">
-            <Field label="Plano" value={student.plan_name} />
-            <Field label="Valor mensal" value={student.plan_price != null ? `R$ ${student.plan_price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : null} />
-            <Field label="Início do plano" value={formatDateBR(student.plan_start)} />
-            <Field label="Vencimento" value={formatDateBR(student.plan_end)} />
-            <Field label="Status" value={status} />
-          </Section>
-          <Section title="Notas">
-            <Field label="Observações" value={student.notes} />
-          </Section>
+          </Card>
+          <Card title="Saúde e treino">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <Field label="Objetivo principal" value={student.goal} />
+              <Field label="Restrições ou lesões" value={student.restrictions} />
+              <Field label="Condicionamento atual" value={student.fitness_level} />
+              <Field label="Experiência com treino" value={student.training_experience} />
+              <Field label="Frequência desejada" value={student.weekly_frequency ? `${student.weekly_frequency}x/semana` : null} />
+            </div>
+          </Card>
+          <Card title="Plano e financeiro">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <Field label="Plano" value={student.plan_name} />
+              <Field label="Valor mensal" value={student.plan_price != null ? `R$ ${student.plan_price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : null} />
+              <Field label="Início do plano" value={formatDateBR(student.plan_start)} />
+              <Field label="Vencimento" value={formatDateBR(student.plan_end)} />
+              <Field label="Status" value={status} />
+            </div>
+          </Card>
+          <Card title="Notas">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <Field label="Observações" value={student.notes} />
+            </div>
+          </Card>
         </div>
       )}
 
@@ -488,110 +468,107 @@ export default function StudentProfile({
       )}
 
       {/* Modal de confirmação — Inativar */}
-      {inactivateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-bold text-neutral-900">Inativar aluno</h2>
-            <p className="mt-2 text-sm text-neutral-600">
-              Você está prestes a inativar <strong>{capitalizeName(student.name)}</strong>. Esta ação:
-            </p>
-            <ul className="mt-3 list-inside space-y-1 text-sm text-neutral-600">
-              <li>• Cancela as aulas agendadas (elas saem da agenda);</li>
-              <li>• Cancela os pagamentos pendentes;</li>
-              <li>• Encerra a vigência do plano na data de hoje;</li>
-              <li>• Deve ser usada apenas quando tudo estiver acertado entre aluno e personal.</li>
-            </ul>
-            <p className="mt-3 text-sm text-neutral-600">
-              O histórico (pagamentos, evolução, fotos) é preservado. O aluno poderá ser reativado depois.
-            </p>
-            <label htmlFor="confirm-inactivate" className="mt-4 block text-sm font-semibold text-neutral-800">
-              Digite <span className="font-mono text-red-600">INATIVAR</span> para confirmar
-            </label>
-            <input
-              id="confirm-inactivate"
-              type="text"
-              value={typed}
-              onChange={(e) => setTyped(e.target.value.toUpperCase())}
-              placeholder="INATIVAR"
-              autoComplete="off"
-              className="mt-1.5 w-full rounded-lg border border-neutral-300 px-4 py-3 text-neutral-900 placeholder:text-neutral-400 focus:border-red-600 focus:outline-none"
-            />
-            {error && (
-              <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-center text-sm font-medium text-red-800">
-                {error}
-              </p>
-            )}
-            <div className="mt-5 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setInactivateOpen(false)}
-                disabled={inactivating}
-                className="flex-1 rounded-lg border border-neutral-300 px-4 py-2.5 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={inactivateStudent}
-                disabled={!canInactivate || inactivating}
-                className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {inactivating ? "Inativando..." : "Inativar aluno"}
-              </button>
-            </div>
-          </div>
+      <Modal
+        open={inactivateOpen}
+        onClose={() => setInactivateOpen(false)}
+        title="Inativar aluno"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={() => setInactivateOpen(false)}
+              disabled={inactivating}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              className="flex-1"
+              onClick={inactivateStudent}
+              disabled={!canInactivate || inactivating}
+            >
+              {inactivating ? "Inativando..." : "Inativar aluno"}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-neutral-600">
+          Você está prestes a inativar <strong>{capitalizeName(student.name)}</strong>. Esta ação:
+        </p>
+        <ul className="mt-3 list-inside space-y-1 text-sm text-neutral-600">
+          <li>• Cancela as aulas agendadas (elas saem da agenda);</li>
+          <li>• Cancela os pagamentos pendentes;</li>
+          <li>• Encerra a vigência do plano na data de hoje;</li>
+          <li>• Deve ser usada apenas quando tudo estiver acertado entre aluno e personal.</li>
+        </ul>
+        <p className="mt-3 text-sm text-neutral-600">
+          O histórico (pagamentos, evolução, fotos) é preservado. O aluno poderá ser reativado depois.
+        </p>
+        <div className="mt-4">
+          <Input
+            id="confirm-inactivate"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value.toUpperCase())}
+            placeholder="INATIVAR"
+            autoComplete="off"
+          />
         </div>
-      )}
+        {error && (
+          <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-center text-sm font-medium text-red-800">
+            {error}
+          </p>
+        )}
+      </Modal>
 
       {/* Modal — Enviar por e-mail */}
-      {emailModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-bold text-neutral-900">Enviar relatório por e-mail</h2>
-            <p className="mt-2 text-sm text-neutral-600">
-              O PDF de evolução de <strong>{capitalizeName(student.name)}</strong> será enviado em anexo.
-            </p>
-            <label htmlFor="report-email" className="mt-4 block text-sm font-semibold text-neutral-800">
-              E-mail do destinatário
-            </label>
-            <input
-              id="report-email"
-              type="email"
-              value={emailTo}
-              onChange={(e) => setEmailTo(e.target.value)}
-              placeholder="email@exemplo.com"
-              className="mt-1.5 w-full rounded-lg border border-neutral-300 px-4 py-3 text-neutral-900 placeholder:text-neutral-400 focus:border-red-600 focus:outline-none"
-            />
-            {emailMsg && (
-              <p
-                className={`mt-3 rounded-lg p-3 text-center text-sm font-medium ${
-                  emailMsg.ok ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
-                }`}
-              >
-                {emailMsg.text}
-              </p>
-            )}
-            <div className="mt-5 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setEmailModalOpen(false)}
-                disabled={sending}
-                className="flex-1 rounded-lg border border-neutral-300 px-4 py-2.5 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleSendEmail}
-                disabled={!emailTo.trim() || sending}
-                className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {sending ? "Enviando..." : "Enviar"}
-              </button>
-            </div>
-          </div>
+      <Modal
+        open={emailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
+        title="Enviar relatório por e-mail"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={() => setEmailModalOpen(false)}
+              disabled={sending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              className="flex-1"
+              onClick={handleSendEmail}
+              disabled={!emailTo.trim() || sending}
+            >
+              {sending ? "Enviando..." : "Enviar"}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-neutral-600">
+          O PDF de evolução de <strong>{capitalizeName(student.name)}</strong> será enviado em anexo.
+        </p>
+        <div className="mt-4">
+          <Input
+            id="report-email"
+            type="email"
+            value={emailTo}
+            onChange={(e) => setEmailTo(e.target.value)}
+            placeholder="email@exemplo.com"
+          />
         </div>
-      )}
+        {emailMsg && (
+          <p
+            className={`mt-3 rounded-lg p-3 text-center text-sm font-medium ${
+              emailMsg.ok ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
+            }`}
+          >
+            {emailMsg.text}
+          </p>
+        )}
+      </Modal>
 
       {/* Modal — Editar perfil */}
       {editOpen && (

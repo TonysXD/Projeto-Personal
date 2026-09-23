@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import ScheduleClient from "./ScheduleClient";
+import ScheduleClient from "@/components/appointments/ScheduleClient";
 
 export default async function AppointmentsPage() {
   const supabase = await createClient();
@@ -16,8 +16,7 @@ export default async function AppointmentsPage() {
         .order("appointment_date", { ascending: false }),
       supabase
         .from("students")
-        .select("id, name, photo_url, status")
-        .order("name", { ascending: true }),
+        .select("id, name, photo_url, status"),
     ]);
 
   return (

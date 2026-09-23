@@ -1,9 +1,14 @@
 "use client";
-
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { formatDateBR } from "@/lib/format";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
+import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 const WEEKDAYS = [
   "Domingo",
@@ -14,7 +19,6 @@ const WEEKDAYS = [
   "Sexta",
   "Sábado",
 ];
-
 const WEEKDAYS_SHORT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 type Slot = {
@@ -56,24 +60,12 @@ function formatTime(t: string) {
   return t.slice(0, 5);
 }
 
-const inputClasses =
-  "w-full rounded-lg border border-neutral-300 bg-white px-4 py-3 text-neutral-900 placeholder:text-neutral-400 transition duration-200 focus:border-red-600";
-const labelClasses = "mb-1.5 block text-sm font-semibold text-neutral-800";
-
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    agendado: { label: "Agendado", cls: "bg-blue-100 text-blue-800" },
-    reagendado: { label: "Reagendado", cls: "bg-amber-100 text-amber-800" },
-    cancelado: { label: "Cancelado", cls: "bg-red-100 text-red-800" },
-    concluido: { label: "Concluído", cls: "bg-green-100 text-green-800" },
-  };
-  const s = map[status] ?? map.agendado;
-  return (
-    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${s.cls}`}>
-      {s.label}
-    </span>
-  );
-}
+const statusBadge: Record<string, { variant: "info" | "warning" | "danger" | "success"; label: string }> = {
+  agendado: { variant: "info", label: "Agendado" },
+  reagendado: { variant: "warning", label: "Reagendado" },
+  cancelado: { variant: "danger", label: "Cancelado" },
+  concluido: { variant: "success", label: "Concluído" },
+};
 
 export default function ScheduleClient({
   initialSlots,
@@ -86,7 +78,6 @@ export default function ScheduleClient({
 }) {
   const router = useRouter();
   const supabase = createClient();
-
   const [slots, setSlots] = useState<Slot[]>(initialSlots);
   const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments);
   const [view, setView] = useState<"semana" | "avulsos">("semana");
@@ -96,7 +87,6 @@ export default function ScheduleClient({
   const [error, setError] = useState<string | null>(null);
   const [reasonDrafts, setReasonDrafts] = useState<Record<string, string>>({});
   const [savingReasonId, setSavingReasonId] = useState<string | null>(null);
-
   const [form, setForm] = useState({
     student_id: "",
     weekday: "1",
@@ -105,9 +95,7 @@ export default function ScheduleClient({
     appointment_date: todayISO(),
     notes: "",
   });
-
   const today = todayISO();
-
   const studentsById = useMemo(
     () => new Map(students.map((s) => [s.id, s])),
     [students]
@@ -137,7 +125,6 @@ export default function ScheduleClient({
       return;
     }
     setSaving(true);
-
     if (modalMode === "fixo") {
       const { data, error: err } = await supabase
         .from("schedule_slots")
@@ -177,13 +164,11 @@ export default function ScheduleClient({
         setError("Não foi possível salvar: " + (err?.message ?? "erro desconhecido"));
       }
     }
-
     setSaving(false);
     router.refresh();
   }
 
   // ===== Horários fixos =====
-
   async function deactivateSlot(slot: Slot) {
     const { data, error: err } = await supabase
       .from("schedule_slots")
@@ -254,7 +239,6 @@ export default function ScheduleClient({
   }
 
   // ===== Agendamentos avulsos =====
-
   async function deactivateAppointment(app: Appointment) {
     const { data, error: err } = await supabase
       .from("appointments")
@@ -344,18 +328,12 @@ export default function ScheduleClient({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-neutral-900">Agenda</h1>
         <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => openModal("fixo")}
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
-          >
+          <Button variant="danger" onClick={() => openModal("fixo")}>
             + Horário fixo
-          </button>
-          <button
-            onClick={() => openModal("avulso")}
-            className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
-          >
+          </Button>
+          <Button variant="secondary" onClick={() => openModal("avulso")}>
             + Agendamento avulso
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -416,15 +394,9 @@ export default function ScheduleClient({
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
                               <span
-                                className={`h-2 w-2 rounded-full ${
-                                  isActive ? "bg-green-500" : "bg-red-500"
-                                }`}
+                                className={`h-2 w-2 rounded-full ${isActive ? "bg-green-500" : "bg-red-500"}`}
                               />
-                              <p
-                                className={`text-sm font-semibold ${
-                                  isActive ? "text-green-900" : "text-red-900"
-                                }`}
-                              >
+                              <p className={`text-sm font-semibold ${isActive ? "text-green-900" : "text-red-900"}`}>
                                 {formatTime(slot.start_time)} – {formatTime(slot.end_time)}
                               </p>
                             </div>
@@ -461,11 +433,9 @@ export default function ScheduleClient({
                               </button>
                             </div>
                           </div>
-
                           <p className={`mt-1 text-sm ${isActive ? "text-green-800" : "text-red-800"}`}>
                             {student?.name ?? "Aluno removido"}
                           </p>
-
                           {!isActive && (
                             <div className="mt-2">
                               <label
@@ -501,9 +471,7 @@ export default function ScheduleClient({
                                 </button>
                               </div>
                               {slot.reason && (
-                                <p className="mt-1 text-xs italic text-red-700">
-                                  ✓ {slot.reason}
-                                </p>
+                                <p className="mt-1 text-xs italic text-red-700">✓ {slot.reason}</p>
                               )}
                             </div>
                           )}
@@ -521,21 +489,21 @@ export default function ScheduleClient({
       {view === "avulsos" && (
         <div className="space-y-3">
           {appointments.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-neutral-300 bg-white p-10 text-center text-neutral-500">
-              Nenhum agendamento avulso. Use "+ Agendamento avulso" para reagendar um treino pontualmente.
-            </p>
+            <EmptyState
+              title="Nenhum agendamento avulso"
+              description='Use "+ Agendamento avulso" para reagendar um treino pontualmente.'
+            />
           ) : (
             appointments.map((app) => {
               const student = studentsById.get(app.student_id);
               const isActive = app.active;
               const draft = reasonDrafts[app.id] ?? app.reason ?? "";
+              const badge = statusBadge[app.status] ?? statusBadge.agendado;
               return (
                 <div
                   key={app.id}
                   className={`rounded-xl border p-4 transition-colors ${
-                    isActive
-                      ? "border-green-200 bg-green-50"
-                      : "border-red-200 bg-red-50"
+                    isActive ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"
                   }`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -558,7 +526,9 @@ export default function ScheduleClient({
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <StatusBadge status={app.status} />
+                      <Badge variant={badge.variant} dot>
+                        {badge.label}
+                      </Badge>
                       {isActive ? (
                         <button
                           onClick={() => deactivateAppointment(app)}
@@ -575,12 +545,9 @@ export default function ScheduleClient({
                         </button>
                       )}
                       {app.status === "agendado" && isActive && (
-                        <button
-                          onClick={() => updateAppointmentStatus(app, "concluido")}
-                          className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-green-700"
-                        >
+                        <Button variant="success" size="sm" className="h-8 px-3 text-xs" onClick={() => updateAppointmentStatus(app, "concluido")}>
                           Concluir
-                        </button>
+                        </Button>
                       )}
                       <button
                         onClick={() => removeAppointment(app)}
@@ -593,7 +560,6 @@ export default function ScheduleClient({
                       </button>
                     </div>
                   </div>
-
                   {!isActive && (
                     <div className="mt-3">
                       <label
@@ -629,9 +595,7 @@ export default function ScheduleClient({
                         </button>
                       </div>
                       {app.reason && (
-                        <p className="mt-1 text-xs italic text-red-700">
-                          ✓ {app.reason}
-                        </p>
+                        <p className="mt-1 text-xs italic text-red-700">✓ {app.reason}</p>
                       )}
                     </div>
                   )}
@@ -643,126 +607,107 @@ export default function ScheduleClient({
       )}
 
       {/* Modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <form onSubmit={handleAdd} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-bold text-neutral-900">
-              {modalMode === "fixo" ? "Novo horário fixo" : "Novo agendamento avulso"}
-            </h2>
-            <p className="mt-1 text-sm text-neutral-500">
-              {modalMode === "fixo"
-                ? "Repete toda semana no dia e horário escolhidos."
-                : "Compromisso pontual em uma data específica (ex.: reagendamento)."}
-            </p>
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={modalMode === "fixo" ? "Novo horário fixo" : "Novo agendamento avulso"}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={() => setModalOpen(false)}
+              disabled={saving}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              className="flex-1"
+              type="submit"
+              form="sch-form"
+              disabled={saving}
+            >
+              {saving ? "Salvando..." : "Salvar"}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-neutral-500">
+          {modalMode === "fixo"
+            ? "Repete toda semana no dia e horário escolhidos."
+            : "Compromisso pontual em uma data específica (ex.: reagendamento)."}
+        </p>
+        <form id="sch-form" onSubmit={handleAdd} className="mt-4 space-y-4">
+          <Select
+            id="sch-student"
+            label="Aluno *"
+            value={form.student_id}
+            onChange={(e) => setForm((f) => ({ ...f, student_id: e.target.value }))}
+          >
+            <option value="">Selecione...</option>
+            {students.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} {s.status !== "ativo" ? "(inativo)" : ""}
+              </option>
+            ))}
+          </Select>
 
-            <div className="mt-4 space-y-4">
-              <div>
-                <label htmlFor="sch-student" className={labelClasses}>Aluno *</label>
-                <select
-                  id="sch-student"
-                  className={inputClasses}
-                  value={form.student_id}
-                  onChange={(e) => setForm((f) => ({ ...f, student_id: e.target.value }))}
-                >
-                  <option value="">Selecione...</option>
-                  {students.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} {s.status !== "ativo" ? "(inativo)" : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          {modalMode === "fixo" ? (
+            <Select
+              id="sch-weekday"
+              label="Dia da semana *"
+              value={form.weekday}
+              onChange={(e) => setForm((f) => ({ ...f, weekday: e.target.value }))}
+            >
+              {WEEKDAYS_SHORT.map((name, i) => (
+                <option key={i} value={String(i)}>{name}</option>
+              ))}
+            </Select>
+          ) : (
+            <Input
+              id="sch-date"
+              label="Data *"
+              type="date"
+              value={form.appointment_date}
+              onChange={(e) => setForm((f) => ({ ...f, appointment_date: e.target.value }))}
+            />
+          )}
 
-              {modalMode === "fixo" ? (
-                <div>
-                  <label htmlFor="sch-weekday" className={labelClasses}>Dia da semana *</label>
-                  <select
-                    id="sch-weekday"
-                    className={inputClasses}
-                    value={form.weekday}
-                    onChange={(e) => setForm((f) => ({ ...f, weekday: e.target.value }))}
-                  >
-                    {WEEKDAYS_SHORT.map((name, i) => (
-                      <option key={i} value={String(i)}>{name}</option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <div>
-                  <label htmlFor="sch-date" className={labelClasses}>Data *</label>
-                  <input
-                    id="sch-date"
-                    type="date"
-                    className={inputClasses}
-                    value={form.appointment_date}
-                    onChange={(e) => setForm((f) => ({ ...f, appointment_date: e.target.value }))}
-                  />
-                </div>
-              )}
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              id="sch-start"
+              label="Início *"
+              type="time"
+              value={form.start_time}
+              onChange={(e) => setForm((f) => ({ ...f, start_time: e.target.value }))}
+            />
+            <Input
+              id="sch-end"
+              label="Fim *"
+              type="time"
+              value={form.end_time}
+              onChange={(e) => setForm((f) => ({ ...f, end_time: e.target.value }))}
+            />
+          </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="sch-start" className={labelClasses}>Início *</label>
-                  <input
-                    id="sch-start"
-                    type="time"
-                    className={inputClasses}
-                    value={form.start_time}
-                    onChange={(e) => setForm((f) => ({ ...f, start_time: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="sch-end" className={labelClasses}>Fim *</label>
-                  <input
-                    id="sch-end"
-                    type="time"
-                    className={inputClasses}
-                    value={form.end_time}
-                    onChange={(e) => setForm((f) => ({ ...f, end_time: e.target.value }))}
-                  />
-                </div>
-              </div>
+          {modalMode === "avulso" && (
+            <Input
+              id="sch-notes"
+              label="Observações"
+              value={form.notes}
+              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+              placeholder="opcional"
+            />
+          )}
+        </form>
 
-              {modalMode === "avulso" && (
-                <div>
-                  <label htmlFor="sch-notes" className={labelClasses}>Observações</label>
-                  <input
-                    id="sch-notes"
-                    className={inputClasses}
-                    value={form.notes}
-                    onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                    placeholder="opcional"
-                  />
-                </div>
-              )}
-            </div>
-
-            {error && (
-              <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-center text-sm font-medium text-red-800">
-                {error}
-              </p>
-            )}
-
-            <div className="mt-5 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setModalOpen(false)}
-                disabled={saving}
-                className="flex-1 rounded-lg border border-neutral-300 px-4 py-2.5 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
-              >
-                {saving ? "Salvando..." : "Salvar"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+        {error && (
+          <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-center text-sm font-medium text-red-800">
+            {error}
+          </p>
+        )}
+      </Modal>
     </div>
   );
 }

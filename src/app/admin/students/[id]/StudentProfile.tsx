@@ -15,29 +15,7 @@ import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-
-type Student = {
-  id: string;
-  name: string;
-  whatsapp: string | null;
-  email: string | null;
-  birth_date: string | null;
-  gender: string | null;
-  neighborhood: string | null;
-  address: string | null;
-  goal: string | null;
-  restrictions: string | null;
-  fitness_level: string | null;
-  training_experience: string | null;
-  weekly_frequency: number | null;
-  plan_name: string | null;
-  plan_price: number | null;
-  plan_start: string | null;
-  plan_end: string | null;
-  status: string;
-  notes: string | null;
-  photo_url: string | null;
-};
+import type { Student } from "@/types";
 
 const tabs = [
   { id: "dados", label: "Dados" },

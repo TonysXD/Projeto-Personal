@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import PaymentsClient from "./PaymentsClient";
+import PaymentsClient from "@/components/payments/PaymentsClient";
 
 export default async function PaymentsPage() {
   const supabase = await createClient();

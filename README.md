@@ -1,27 +1,37 @@
 # Lucas Personal — Sistema de Gestão
 
-Sistema de gestão para personal trainer: cadastro de alunos, acompanhamento de evolução, agenda de treinos e controle de pagamentos, com geração de relatório de evolução em PDF.
+Sistema completo para personal trainer gerenciar alunos, evolução, agenda e pagamentos. Construído com Next.js, Supabase e Tailwind CSS.
 
-## 🚀 Stack
+## Funcionalidades
 
-- **Next.js 16** (App Router) + **React 19** + **TypeScript**
-- **Tailwind CSS 4** para estilização
-- **Supabase** para autenticação, banco de dados (PostgreSQL) e storage de fotos
-- **pdf-lib** para geração do relatório de evolução em PDF
-- **Resend** para envio do relatório por e-mail
+- **Alunos** — cadastro, perfil com foto, dados pessoais, saúde e treino, plano financeiro
+- **Evolução** — registros de peso, altura, % de gordura e medidas, com fotos e relatório em PDF
+- **Agenda** — horários fixos semanais por aluno e aulas avulsas, com ativação/desativação
+- **Pagamentos** — controle de mensalidades com status (pago, pendente, atrasado, cancelado), filtros e resumo financeiro
+- **Relatório PDF** — geração de relatório de evolução com cards de resumo, tabela de histórico e fotos; download ou envio por e-mail (Resend)
+- **Autenticação** — login via Supabase Auth com área administrativa protegida
 
-## 📁 Estrutura
+## Stack
 
-```text
-src/
-├── app/                    → rotas (páginas e APIs)
-│   ├── (marketing)/        → landing e login (público)
-│   ├── (dashboard)/        → área autenticada (protegida)
-│   └── api/report/[id]/    → geração e envio do PDF
-├── components/
-│   ├── ui/                 → design system (Button, Card, Modal, Input, Badge, EmptyState, Skeleton)
-│   ├── layout/             → Sidebar, Header
-│   └── students/           → componentes do módulo de alunos
-├── lib/                    → supabase, formatação, whatsapp
-├── server/actions/         → server actions (inativação, reativação)
-└── types/                  → tipos centralizados do domínio
+| Camada | Tecnologia |
+|--------|-----------|
+| Frontend | Next.js 16 (App Router), React 19, TypeScript |
+| Estilo | Tailwind CSS 4 |
+| Banco de dados | Supabase (PostgreSQL) com Row Level Security |
+| Autenticação | Supabase Auth |
+| PDF | pdf-lib |
+| E-mail | Resend |
+| Lint | ESLint 9 |
+
+## Começando
+
+### Pré-requisitos
+
+- Node.js 20+
+- Conta no [Supabase](https://supabase.com) com projeto criado
+- Conta no [Resend](https://resend.com) com domínio verificado (para envio de e-mail)
+
+### Instalação
+
+```bash
+npm install

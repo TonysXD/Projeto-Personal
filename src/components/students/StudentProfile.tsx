@@ -10,10 +10,9 @@ import AgendaTab from "./AgendaTab";
 import NotesTab from "./NotesTab";
 import EditStudentModal from "./EditStudentModal";
 import StudentHeader from "./StudentHeader";
+import InactivateStudentModal from "./InactivateStudentModal";
+import SendEmailModal from "./SendEmailModal";
 import { Card } from "@/components/ui/Card";
-import { Modal } from "@/components/ui/Modal";
-import { Input } from "@/components/ui/Input";
-import { Button } from "@/components/ui/Button";
 import type { Student } from "@/types";
 import { inactivateStudentAction, reactivateStudentAction } from "@/server/actions/students";
 
@@ -65,15 +64,12 @@ export default function StudentProfile({
   const [editOpen, setEditOpen] = useState(false);
   // Modal de confirmação de inativação
   const [inactivateOpen, setInactivateOpen] = useState(false);
-  const [typed, setTyped] = useState("");
   const [inactivating, setInactivating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Modal de envio por e-mail
   const [emailModalOpen, setEmailModalOpen] = useState(false);
-  const [emailTo, setEmailTo] = useState(student.email ?? "");
   const [sending, setSending] = useState(false);
   const [emailMsg, setEmailMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const canInactivate = typed.trim().toUpperCase() === "INATIVAR";
 
   // Link do WhatsApp com mensagem pré-preenchida (null se número inválido)
   const whatsLink = whatsAppLink(
@@ -92,13 +88,12 @@ export default function StudentProfile({
   }
 
   async function handleInactivate() {
-    if (!canInactivate || inactivating) return;
+    if (inactivating) return;
     setInactivating(true);
     setError(null);
     const res = await inactivateStudentAction(student.id);
     if (res.ok) {
       setInactivateOpen(false);
-      setTyped("");
       setStatus("inativo");
       router.refresh();
     } else {
@@ -129,15 +124,15 @@ export default function StudentProfile({
     router.refresh();
   }
 
-  async function handleSendEmail() {
-    if (!emailTo.trim() || sending) return;
+  async function handleSendEmail(email: string) {
+    if (!email.trim() || sending) return;
     setSending(true);
     setEmailMsg(null);
     try {
       const res = await fetch(`/api/report/${student.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: emailTo.trim() }),
+        body: JSON.stringify({ email: email.trim() }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
@@ -152,7 +147,6 @@ export default function StudentProfile({
   }
 
   function openEmailModal() {
-    setEmailTo(student.email ?? "");
     setEmailMsg(null);
     setEmailModalOpen(true);
   }
@@ -169,7 +163,6 @@ export default function StudentProfile({
         onEdit={() => setEditOpen(true)}
         onInactivate={() => {
           setError(null);
-          setTyped("");
           setInactivateOpen(true);
         }}
         onReactivate={handleReactivate}
@@ -256,107 +249,25 @@ export default function StudentProfile({
       )}
 
       {/* Modal de confirmação — Inativar */}
-      <Modal
+      <InactivateStudentModal
         open={inactivateOpen}
         onClose={() => setInactivateOpen(false)}
-        title="Inativar aluno"
-        footer={
-          <>
-            <Button
-              variant="secondary"
-              className="flex-1"
-              onClick={() => setInactivateOpen(false)}
-              disabled={inactivating}
-            >
-              Cancelar
-            </Button>
-            <Button
-              variant="danger"
-              className="flex-1"
-              onClick={handleInactivate}
-              disabled={!canInactivate || inactivating}
-            >
-              {inactivating ? "Inativando..." : "Inativar aluno"}
-            </Button>
-          </>
-        }
-      >
-        <p className="text-sm text-neutral-600">
-          Você está prestes a inativar <strong>{capitalizeName(student.name)}</strong>. Esta ação:
-        </p>
-        <ul className="mt-3 list-inside space-y-1 text-sm text-neutral-600">
-          <li>• Cancela as aulas agendadas (elas saem da agenda);</li>
-          <li>• Cancela os pagamentos pendentes;</li>
-          <li>• Encerra a vigência do plano na data de hoje;</li>
-          <li>• Deve ser usada apenas quando tudo estiver acertado entre aluno e personal.</li>
-        </ul>
-        <p className="mt-3 text-sm text-neutral-600">
-          O histórico (pagamentos, evolução, fotos) é preservado. O aluno poderá ser reativado depois.
-        </p>
-        <div className="mt-4">
-          <Input
-            id="confirm-inactivate"
-            value={typed}
-            onChange={(e) => setTyped(e.target.value.toUpperCase())}
-            placeholder="INATIVAR"
-            autoComplete="off"
-          />
-        </div>
-        {error && (
-          <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-center text-sm font-medium text-red-800">
-            {error}
-          </p>
-        )}
-      </Modal>
+        studentName={capitalizeName(student.name)}
+        inactivating={inactivating}
+        error={error}
+        onConfirm={handleInactivate}
+      />
 
       {/* Modal — Enviar por e-mail */}
-      <Modal
+      <SendEmailModal
         open={emailModalOpen}
         onClose={() => setEmailModalOpen(false)}
-        title="Enviar relatório por e-mail"
-        footer={
-          <>
-            <Button
-              variant="secondary"
-              className="flex-1"
-              onClick={() => setEmailModalOpen(false)}
-              disabled={sending}
-            >
-              Cancelar
-            </Button>
-            <Button
-              variant="danger"
-              className="flex-1"
-              onClick={handleSendEmail}
-              disabled={!emailTo.trim() || sending}
-            >
-              {sending ? "Enviando..." : "Enviar"}
-            </Button>
-          </>
-        }
-      >
-        <p className="text-sm text-neutral-600">
-          O PDF de evolução de <strong>{capitalizeName(student.name)}</strong> será enviado em anexo.
-        </p>
-        <div className="mt-4">
-          <Input
-            id="report-email"
-            type="email"
-            value={emailTo}
-            onChange={(e) => setEmailTo(e.target.value)}
-            placeholder="email@exemplo.com"
-          />
-        </div>
-        {emailMsg && (
-          <p
-            className={`mt-3 rounded-lg p-3 text-center text-sm font-medium ${
-              emailMsg.ok ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
-            }`}
-          >
-            {emailMsg.text}
-          </p>
-        )}
-      </Modal>
+        studentName={capitalizeName(student.name)}
+        initialEmail={student.email ?? ""}
+        sending={sending}
+        message={emailMsg}
+        onSend={handleSendEmail}
+      />
 
       {/* Modal — Editar perfil */}
       {editOpen && (

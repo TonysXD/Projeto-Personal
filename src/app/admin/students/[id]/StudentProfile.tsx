@@ -16,6 +16,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import type { Student } from "@/types";
+import { inactivateStudentAction, reactivateStudentAction } from "@/server/actions/students";
 
 const tabs = [
   { id: "dados", label: "Dados" },
@@ -83,87 +84,30 @@ export default function StudentProfile({
     `Olá, ${student.name.split(" ")[0]}! Tudo bem?`
   );
 
-  async function reactivateStudent() {
+  async function handleReactivate() {
     setToggling(true);
-    const { error } = await supabase
-      .from("students")
-      .update({ status: "ativo" })
-      .eq("id", student.id);
-    if (!error) {
+    const res = await reactivateStudentAction(student.id);
+    if (res.ok) {
       setStatus("ativo");
       router.refresh();
     }
     setToggling(false);
   }
 
-  async function inactivateStudent() {
+  async function handleInactivate() {
     if (!canInactivate || inactivating) return;
     setInactivating(true);
     setError(null);
-    try {
-      const reason = `Aluno inativado em ${formatDateBR(todayLocalISO())}`;
-      const { data: slots } = await supabase
-        .from("schedule_slots")
-        .select("id")
-        .eq("student_id", student.id);
-      if (slots && slots.length > 0) {
-        await supabase
-          .from("schedule_slots")
-          .update({ active: false, reason })
-          .in("id", slots.map((s) => s.id));
-      }
-      const { data: apps } = await supabase
-        .from("appointments")
-        .select("id")
-        .eq("student_id", student.id)
-        .gte("appointment_date", todayLocalISO())
-        .neq("status", "concluido");
-      if (apps && apps.length > 0) {
-        await supabase
-          .from("appointments")
-          .update({ status: "cancelado", active: false, reason })
-          .in("id", apps.map((a) => a.id));
-      }
-      const { data: pending } = await supabase
-        .from("payments")
-        .select("id, notes")
-        .eq("student_id", student.id)
-        .eq("status", "pendente");
-      if (pending && pending.length > 0) {
-        for (const p of pending) {
-          const suffix = `— Cancelado: aluno inativado em ${formatDateBR(todayLocalISO())}`;
-          const notes = p.notes ? `${p.notes} ${suffix}` : suffix;
-          await supabase
-            .from("payments")
-            .update({ status: "cancelado", notes })
-            .eq("id", p.id);
-        }
-      }
-      const { data: cur } = await supabase
-        .from("students")
-        .select("plan_end")
-        .eq("id", student.id)
-        .single();
-      if (cur && (!cur.plan_end || cur.plan_end > todayLocalISO())) {
-        await supabase
-          .from("students")
-          .update({ plan_end: todayLocalISO() })
-          .eq("id", student.id);
-      }
-      const { error: err } = await supabase
-        .from("students")
-        .update({ status: "inativo" })
-        .eq("id", student.id);
-      if (err) throw err;
+    const res = await inactivateStudentAction(student.id);
+    if (res.ok) {
       setInactivateOpen(false);
       setTyped("");
       setStatus("inativo");
-      setInactivating(false);
       router.refresh();
-    } catch {
-      setError("Não foi possível inativar o aluno. Tente novamente.");
-      setInactivating(false);
+    } else {
+      setError(res.error ?? "Não foi possível inativar o aluno. Tente novamente.");
     }
+    setInactivating(false);
   }
 
   async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -358,7 +302,7 @@ export default function StudentProfile({
               Inativar aluno
             </Button>
           ) : (
-            <Button variant="success" onClick={reactivateStudent} disabled={toggling}>
+            <Button variant="success" onClick={handleReactivate} disabled={toggling}>
               {toggling ? "Salvando..." : "Reativar aluno"}
             </Button>
           )}
@@ -463,7 +407,7 @@ export default function StudentProfile({
             <Button
               variant="danger"
               className="flex-1"
-              onClick={inactivateStudent}
+              onClick={handleInactivate}
               disabled={!canInactivate || inactivating}
             >
               {inactivating ? "Inativando..." : "Inativar aluno"}
